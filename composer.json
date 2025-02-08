@@ -1,0 +1,21 @@
+{
+  "name": "brahmic/clientdto",
+  "description": "",
+  "minimum-stability": "dev",
+  "require": {
+    "php": "^8.3",
+    "spatie/laravel-data": "^4.13"
+  },
+  "repositories": [
+  ],
+  "license": "MIT",
+  "autoload": {
+    "files": [
+    ],
+    "psr-4": {
+      "Brahmic\\ClientDTO\\": "./src"
+    }
+  },
+  "require-dev": {
+  }
+}
