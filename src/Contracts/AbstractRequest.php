@@ -65,7 +65,6 @@ abstract class AbstractRequest
 
     public function send()
     {
-
         //$this->getQueryParams();
 
         dump($this->getQueryParamsAsString());
