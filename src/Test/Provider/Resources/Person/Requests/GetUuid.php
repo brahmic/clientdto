@@ -2,20 +2,25 @@
 
 namespace Brahmic\ClientDTO\Test\Provider\Resources\Person\Requests;
 
+use Brahmic\ClientDTO\Attributes\Filter;
 use Brahmic\ClientDTO\Requests\GetRequest;
+use Brahmic\ClientDTO\Requests\PostRequest;
 use Brahmic\ClientDTO\Test\Provider\Resources\Person\DTO\UUID;
 use Brahmic\ClientDTO\Test\Provider\Resources\Person\Support\PersonalData;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Carbon;
 use Spatie\LaravelData\Attributes\MapOutputName;
 
-class GetUuid extends GetRequest
+
+class GetUuid extends PostRequest
 {
     public const string NAME = 'Получение идентификатора проверки физического лица';
+
     public const string DTO = UUID::class;
 
     public const string URI = 'org-check.json';
 
+    #[Filter('filter', UUID::class)]
     #[MapOutputName('PeopleQuery.Regions')]
     public array $regions;
 
@@ -68,7 +73,7 @@ class GetUuid extends GetRequest
         return parent::setFrom($data);
     }
 
-    protected function customQueryParams(): array
+    protected function _queryParams(): array
     {
         return [
             're11gions' => $this->regions,
@@ -82,16 +87,16 @@ class GetUuid extends GetRequest
         ];
     }
 
-//    protected function bodyParams(): array
-//    {
-//        return [
-//            'regions' => $this->regions,
-//            'PeopleQuery.LastName' => $this->lastName,
-//            'PeopleQuery.FirstName' => $this->firstName,
-//            'PeopleQuery.SecondName' => $this->secondName,
-//            'PeopleQuery.INN' => $this->inn,
-//        ];
-//    }
+    protected function bodyParams(): array
+    {
+        return [
+            'regions' => $this->regions,
+            'PeopleQuery.LastName' => $this->lastName,
+            'PeopleQuery.FirstName' => $this->firstName,
+            'PeopleQuery.SecondName' => $this->secondName,
+            'PeopleQuery.INN' => $this->inn,
+        ];
+    }
 
 
 }

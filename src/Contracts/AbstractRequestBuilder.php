@@ -2,9 +2,11 @@
 
 namespace Brahmic\ClientDTO\Contracts;
 
+use Brahmic\ClientDTO\Attributes\Filter;
 use Brahmic\ClientDTO\DataProviderClient;
 use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
+use Brahmic\ClientDTO\Support\ProcessedProperty;
 use Brahmic\ClientDTO\Support\PropertyCollection;
 use Brahmic\ClientDTO\Traits\CustomQueryParams;
 use Closure;
@@ -67,6 +69,7 @@ abstract class AbstractRequestBuilder
 
     public function send()
     {
+        dump($this->isPostRequest() ? 'POST' : 'GET');
         //$this->getQueryParams();
 
         dump('=====[   getQueryParamsAsString');
@@ -141,8 +144,25 @@ abstract class AbstractRequestBuilder
         );
     }
 
-
     protected function queryParams(): array
+    {
+        return $this->getParamsFromProperties()->toArray();
+    }
+
+    final public function getBodyParams(): array
+    {
+        if ($this->isQueryParamsOverride()) {
+            $paramsFromProperties = array_diff_key($this->bodyParams(), $this->queryParams());
+        } else {
+            $paramsFromProperties = $this->bodyParams();
+        }
+
+        return array_merge(
+            $paramsFromProperties,
+        );
+    }
+
+    protected function bodyParams(): array
     {
         return $this->getParamsFromProperties()->toArray();
     }
@@ -262,6 +282,18 @@ abstract class AbstractRequestBuilder
         return $this->getOwnPublicProperties()
             ->mapWithKeys(function (ReflectionProperty $property, $key) use ($closure) {
 
+                $value = self::getObjectPropertyValue($this, $property, $closure);
+                $attributes = $property->getAttributes();
+
+                foreach ($attributes as $attribute) {
+                    $processed = ProcessedProperty::make($attribute->newInstance(), $value);
+                    dump($processed);
+                }
+
+                dd('----');
+                dump($property->getAttributes(Filter::class)[0]->newInstance());
+                dd($property->getAttributes(Filter::class)[0]->newInstance()->output);
+
                 $attributes = $property->getAttributes(MapOutputName::class);
 
                 if (!empty($attributes)) {
@@ -269,7 +301,7 @@ abstract class AbstractRequestBuilder
                 }
 
                 return [
-                    $key => self::getObjectPropertyValue($this, $property, $closure),
+                    $key => $value,
                 ];
             });
     }
@@ -366,5 +398,15 @@ abstract class AbstractRequestBuilder
         }
 
         return $result;
+    }
+
+    public function isGetRequest(): bool
+    {
+        return $this instanceof GetRequest;
+    }
+
+    public function isPostRequest(): bool
+    {
+        return $this instanceof PostRequest;
     }
 }
