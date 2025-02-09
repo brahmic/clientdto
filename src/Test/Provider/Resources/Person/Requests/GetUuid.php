@@ -68,7 +68,7 @@ class GetUuid extends GetRequest
         return parent::setFrom($data);
     }
 
-    protected function queryParams(): array
+    protected function customQueryParams(): array
     {
         return [
             're11gions' => $this->regions,

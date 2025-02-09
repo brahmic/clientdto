@@ -5,12 +5,14 @@ namespace Brahmic\ClientDTO\Contracts;
 use Brahmic\ClientDTO\DataProviderClient;
 use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
+use Brahmic\ClientDTO\Support\PropertyCollection;
 use Brahmic\ClientDTO\Traits\CustomQueryParams;
 use Closure;
 use Exception;
 use GuzzleHttp\RequestOptions;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Collection;
+use ReflectionClass;
 use ReflectionProperty;
 use Spatie\LaravelData\Attributes\MapOutputName;
 use Throwable;
@@ -31,7 +33,7 @@ use Throwable;
  * Поддерживает атрибуты:
  * #[MapOutputName('new_name')]
  */
-abstract class AbstractRequest
+abstract class AbstractRequestBuilder
 {
     use CustomQueryParams;
 
@@ -67,9 +69,13 @@ abstract class AbstractRequest
     {
         //$this->getQueryParams();
 
+        dump('=====[   getQueryParamsAsString');
         dump($this->getQueryParamsAsString());
+        dump('=====[   getQueryParams');
         dump($this->getQueryParams());
-        dd($this->bodyParams());
+        dump('=====[   getBodyParams');
+        dump($this->getBodyParams());
+        dd('send');
 
         try {
 
@@ -126,33 +132,22 @@ abstract class AbstractRequest
     final public function getQueryParams(): array
     {
         return array_merge(
+        // указанные в классе запроса если метод переопределён или на основе свойств класса
             $this->queryParams(),
-            $this->customQueryParams,
+            // параметры, которые могли быть добавлены динамически в классе запроса через другие методы
+            $this->getCustomQueryParams(),
+            // параметры, которые были указаны в клиенте
             $this->getDataProvider()->getCustomQueryParams()
         );
     }
+
 
     protected function queryParams(): array
     {
         return $this->getParamsFromProperties()->toArray();
     }
 
-    protected function bodyParams(): array
-    {
-        $keys = array_keys($this->queryParams());
-dump($keys);
-        $aaa = array_diff_assoc($this->queryParams(), $this->getParamsFromProperties()->toArray());
-        dd($aaa);
-        /*
-         * todo
-         * Если в запросе определён метод queryParams(), то перечисленные там свойства
-         * нужно исключить из body;
-         */
-
-        return $this->getParamsFromProperties()->toArray();
-    }
-
-    private function getParamsFromProperties(): Collection
+    protected function getParamsFromProperties(): Collection
     {
         return $this->getPublicPropertiesWithValues(function (ReflectionProperty $property, mixed $value) {
             // можно обработать/кастовать к строке значение
@@ -262,15 +257,6 @@ dump($keys);
         throw new \Exception($message . ' ' . static::class);
     }
 
-
-    /**
-     * @return Collection<ReflectionProperty>
-     */
-    private function getOwnPublicProperties(): Collection
-    {
-        return self::getOwnProperties(ReflectionProperty::IS_PUBLIC);
-    }
-
     private function getPublicPropertiesWithValues(?Closure $closure = null): Collection
     {
         return $this->getOwnPublicProperties()
@@ -288,23 +274,6 @@ dump($keys);
             });
     }
 
-    /**
-     * @return Collection<ReflectionProperty>
-     */
-    private static function getOwnProperties(?int $filter = null): Collection
-    {
-        $class = new \ReflectionClass(static::class);
-
-        $result = collect();
-
-        foreach ($class->getProperties($filter) as $reflectionProperty) {
-            if ($reflectionProperty->class === static::class) {
-                $result->put($reflectionProperty->getName(), $reflectionProperty);
-            }
-        }
-
-        return $result;
-    }
 
     /**
      * @throws Exception
@@ -339,5 +308,63 @@ dump($keys);
         } catch (Throwable $e) {
             return false;
         }
+    }
+
+
+    function isMethodOverridden(string $methodName): bool
+    {
+        $reflectionClass = new ReflectionClass(static::class);
+        $parentClass = $reflectionClass->getParentClass();
+
+        if (!$parentClass) {
+            return false; // Нет родительского класса
+        }
+
+        if (!$parentClass->hasMethod($methodName)) {
+            return false; // Метод отсутствует в родительском классе
+        }
+
+        $method = $reflectionClass->getMethod($methodName);
+        $parentMethod = $parentClass->getMethod($methodName);
+
+        // Сравниваем, где объявлен метод
+        return $method->getDeclaringClass()->getName() !== $parentMethod->getDeclaringClass()->getName();
+    }
+
+    protected function isQueryParamsOverride(): bool
+    {
+        return $this->isMethodOverridden('queryParams');
+    }
+
+    protected function isBodyParamsOverride(): bool
+    {
+        return $this->isMethodOverridden('bodyParams');
+    }
+
+
+    /**
+     * @return Collection<ReflectionProperty>
+     */
+    private function getOwnPublicProperties(): Collection
+    {
+        return self::getOwnProperties(ReflectionProperty::IS_PUBLIC);
+    }
+
+    /**
+     * @return PropertyCollection<ReflectionProperty>
+     */
+    private static function getOwnProperties(?int $filter = null): PropertyCollection
+    {
+        $class = new \ReflectionClass(static::class);
+
+        $result = PropertyCollection::make();
+
+        foreach ($class->getProperties($filter) as $reflectionProperty) {
+            if ($reflectionProperty->class === static::class) {
+                $result->put($reflectionProperty->getName(), $reflectionProperty);
+            }
+        }
+
+        return $result;
     }
 }
