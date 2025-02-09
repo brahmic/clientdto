@@ -1,6 +1,6 @@
 <?php
 
-namespace Brahmic\ClientDTO\Test\Resources\Person\Support;
+namespace Brahmic\ClientDTO\Test\Provider\Resources\Person\Support;
 
 use Illuminate\Support\Carbon;
 use Spatie\LaravelData\Attributes\Validation\Distinct;

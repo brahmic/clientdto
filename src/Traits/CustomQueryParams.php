@@ -2,10 +2,15 @@
 
 namespace Brahmic\ClientDTO\Traits;
 
-trait QueryParams
+trait CustomQueryParams
 {
-    private array $queryParams = [];
+    private array $customQueryParams = [];
 
+
+    public function getCustomQueryParams(): array
+    {
+        return $this->customQueryParams;
+    }
 
     /**
      * Заменяет параметр. Подразумевает, что значение будет единственным для ключа.
@@ -16,7 +21,7 @@ trait QueryParams
      */
     public function addQueryParam(string $key, string $value): static
     {
-        $this->queryParams[$key] = $value;
+        $this->customQueryParams[$key] = $value;
 
         return $this;
     }
@@ -47,11 +52,11 @@ trait QueryParams
     public function appendQueryParam(string $key, string $value): static
     {
         // Если параметр уже существует, добавляем новое значение через запятую
-        if (isset($this->queryParams[$key])) {
-            $this->queryParams[$key] .= ',' . $value;
+        if (isset($this->customQueryParams[$key])) {
+            $this->customQueryParams[$key] .= ',' . $value;
         } else {
             // Если параметра нет, создаем новый
-            $this->queryParams[$key] = $value;
+            $this->customQueryParams[$key] = $value;
         }
 
         return $this;
@@ -69,12 +74,12 @@ trait QueryParams
      */
     public function attachQueryParam(string $key, string $value): static
     {
-        if (!isset($this->queryParams[$key])) {
-            $this->queryParams[$key] = [];
+        if (!isset($this->customQueryParams[$key])) {
+            $this->customQueryParams[$key] = [];
         }
 
         // Добавляем новое значение в массив (не перезаписываем)
-        $this->queryParams[$key][] = $value;
+        $this->customQueryParams[$key][] = $value;
 
         return $this;
     }

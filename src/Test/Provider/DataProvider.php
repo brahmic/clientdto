@@ -1,8 +1,9 @@
 <?php
 
-namespace Brahmic\ClientDTO\Test;
+namespace Brahmic\ClientDTO\Test\Provider;
 
 use Brahmic\ClientDTO\DataProviderClient;
+use Brahmic\ClientDTO\Test\Provider\Resources\Person\Person;
 use GuzzleHttp\RequestOptions;
 
 class DataProvider extends DataProviderClient
@@ -37,16 +38,22 @@ class DataProvider extends DataProviderClient
         $createUuidRequest->setTimeout(30);
 
         //dump($createUuidRequest->getQueryParams());
-        dump($createUuidRequest->getTimeout());
-        dump($createUuidRequest->getUrl());
-        dump($createUuidRequest->getUri());
-        dump($createUuidRequest->getRequestBodyType());
-        dump($createUuidRequest->resolveDtoClass());
-        dump('======================================');
+        //dump($createUuidRequest->getTimeout());
+        //dump($createUuidRequest->getUrl());
+        //dump($createUuidRequest->getUri());
+        //dump($createUuidRequest->getRequestBodyType());
+        //dump($createUuidRequest->resolveDtoClass());
+        //dump('======================================');
 
         $createUuidRequest->send();
 
 
         dd($createUuidRequest);
+    }
+
+
+    public function person(): Person
+    {
+        return new Person($this);
     }
 }

@@ -5,13 +5,15 @@ namespace Brahmic\ClientDTO\Contracts;
 use Brahmic\ClientDTO\DataProviderClient;
 use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
-use Brahmic\ClientDTO\Traits\QueryParams;
+use Brahmic\ClientDTO\Traits\CustomQueryParams;
+use Closure;
 use Exception;
 use GuzzleHttp\RequestOptions;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Collection;
 use ReflectionProperty;
 use Spatie\LaravelData\Attributes\MapOutputName;
+use Throwable;
 
 /**
  * Для GET запросов
@@ -31,7 +33,7 @@ use Spatie\LaravelData\Attributes\MapOutputName;
  */
 abstract class AbstractRequest
 {
-    use QueryParams;
+    use CustomQueryParams;
 
     public const ?string URI = null;
 
@@ -66,9 +68,9 @@ abstract class AbstractRequest
 
         //$this->getQueryParams();
 
-        dump($this->getQueryParams());
         dump($this->getQueryParamsAsString());
-        dd($this->getBodyParams());
+        dump($this->getQueryParams());
+        dd($this->bodyParams());
 
         try {
 
@@ -88,35 +90,76 @@ abstract class AbstractRequest
     }
 
 
-    public function getQueryParamsAsString()
+    public function getQueryParamsAsString(): ?string
     {
-        return self::makeQueryString($this->getQueryParams());
+        return $this->makeQueryString($this->getQueryParams());
     }
 
-    public function getBodyParams():array
-    {
-        try {
-            if (method_exists($this, 'bodyParams')) {
-                return $this->bodyParams();
-            }
-        } catch (\Throwable $exception) {
-            throw new Exception("Ошибка при получении body параметров в классе. " . $exception->getMessage());
-        }
+//    public function getBodyParams(): array
+//    {
+//        try {
+//            if (method_exists($this, 'bodyParams')) {
+//                return $this->bodyParams();
+//            }
+//        } catch (\Throwable $exception) {
+//            throw new Exception("Ошибка при получении body параметров в классе. " . $exception->getMessage());
+//        }
+//
+//        return $this->getPublicPropertiesWithValues()->toArray();
+//    }
+//
+//    /**
+//     * @throws Exception
+//     */
+//    private function getCustomQueryParams(): Collection
+//    {
+//        try {
+//            if (method_exists($this, 'queryParams')) {
+//                return collect($this->queryParams());
+//            }
+//        } catch (\Throwable $exception) {
+//            throw new Exception("Ошибка при получении query параметров в классе. " . $exception->getMessage());
+//        }
+//
+//        return collect();
+//    }
 
-        return $this->getPublicPropertiesWithValues()->toArray();
+    private function getParamsFromProperties(): Collection
+    {
+        return $this->getPublicPropertiesWithValues(function (ReflectionProperty $property, mixed $value) {
+            // можно обработать/кастовать к строке значение
+
+            /*
+             * Если можно привести к строке — приводим.
+             * Если указан атрибут кастования — кастуем.
+             */
+            return $this->canBeString($value) ? $value : '111';
+        });
+    }
+
+    protected function queryParams(): array
+    {
+        return $this->getParamsFromProperties()->toArray();
+    }
+
+    protected function bodyParams(): array
+    {
+        /*
+         * todo
+         * Если в запросе определён метод queryParams(), то перечисленные там свойства
+         * нужно исключить из body;
+         */
+
+        return $this->getParamsFromProperties()->toArray();
     }
 
     final public function getQueryParams(): array
     {
-        try {
-            if (method_exists($this, 'queryParams')) {
-                return $this->queryParams();
-            }
-        } catch (\Throwable $exception) {
-            throw new Exception("Ошибка при получении query параметров в классе. " . $exception->getMessage());
-        }
-
-        return $this->getPublicPropertiesWithValues()->toArray();
+        return array_merge(
+            $this->queryParams(),
+            $this->customQueryParams,
+            $this->getDataProvider()->getCustomQueryParams()
+        );
     }
 
     /**
@@ -189,18 +232,6 @@ abstract class AbstractRequest
                 $this->setPropertyValue($propertyName, $data[$propertyName], $property);
             }
         });
-//
-//        foreach ($properties as $property) {
-//            $propertyName = $property->getName();
-//            if (array_key_exists($propertyName, $data)) {
-//                $value = $data[$propertyName];
-//
-//
-//                $property->
-//                $this->setPropertyValue($propertyName, $data[$propertyName]);
-//            }
-//        }
-
 
         return $this;
     }
@@ -236,10 +267,10 @@ abstract class AbstractRequest
         return self::getOwnProperties(ReflectionProperty::IS_PUBLIC);
     }
 
-    private function getPublicPropertiesWithValues(): Collection
+    private function getPublicPropertiesWithValues(?Closure $closure = null): Collection
     {
         return $this->getOwnPublicProperties()
-            ->mapWithKeys(function (ReflectionProperty $property, $key) {
+            ->mapWithKeys(function (ReflectionProperty $property, $key) use ($closure) {
 
                 $attributes = $property->getAttributes(MapOutputName::class);
 
@@ -248,7 +279,7 @@ abstract class AbstractRequest
                 }
 
                 return [
-                    $key => self::getObjectPropertyValue($this, $property),
+                    $key => self::getObjectPropertyValue($this, $property, $closure),
                 ];
             });
     }
@@ -274,33 +305,35 @@ abstract class AbstractRequest
     /**
      * @throws Exception
      */
-    private static function getObjectPropertyValue(object $obj, \ReflectionProperty $property): mixed
+    private static function getObjectPropertyValue(object $obj, ReflectionProperty $property, ?Closure $closure = null): mixed
     {
-
         if ($property->isInitialized($obj)) {
-            return $obj->{$property->getName()};
+
+            $value = $obj->{$property->getName()};
+
+            return $closure ? $closure($property, $value) : $value;
         }
 
         throw new Exception("Свойство '{$property->getName()}' в запросе '{$property->class}' должно быть инициализировано.");
     }
 
-
-    private function setProperty()
+    public function makeQueryString(array|Collection $queryParams, bool $noQuestion = true): ?string
     {
+        if ($queryParams instanceof Collection) {
+            $queryParams = $queryParams->toArray();
+        }
 
-    }
-
-    public static function makeQueryString(array|Collection $params, bool $noQuestion = true): ?string
-    {
-        $params = $params instanceof Collection ? $params : collect($params);
-
-        $queryString = $params
-            ->filter()
-            ->map(function ($value, $key) {
-                return $key . '=' . urlencode($value);
-            })
-            ->join('&');
+        $queryString = (!empty($queryParams) ? http_build_query($queryParams) : null);
 
         return $queryString ? ($noQuestion ? '?' : null) . $queryString : null;
+    }
+
+    private function canBeString($var): bool
+    {
+        try {
+            return is_scalar($var) || (is_object($var) && method_exists($var, '__toString')) || (string)$var !== null;
+        } catch (Throwable $e) {
+            return false;
+        }
     }
 }

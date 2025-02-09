@@ -1,9 +1,9 @@
 <?php
 
-namespace Brahmic\ClientDTO\Test\Resources\Person\DTO;
+namespace Brahmic\ClientDTO\Test\Provider\Resources\Person\DTO;
 
-use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Attributes\MapInputName;
+use Spatie\LaravelData\Data;
 
 /**
  * Идентификатор проверяемой сущности

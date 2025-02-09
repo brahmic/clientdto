@@ -2,12 +2,12 @@
 
 namespace Brahmic\ClientDTO;
 
-use Brahmic\ClientDTO\Traits\QueryParams;
+use Brahmic\ClientDTO\Traits\CustomQueryParams;
 
 class DataProviderClient
 {
 
-    use QueryParams;
+    use CustomQueryParams;
 
     private ?string $baseUrl = null;
 
