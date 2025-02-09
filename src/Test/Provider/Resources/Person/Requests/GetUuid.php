@@ -68,17 +68,17 @@ class GetUuid extends GetRequest
         return parent::setFrom($data);
     }
 
-    protected function _queryParams(): array
+    protected function queryParams(): array
     {
         return [
             're11gions' => $this->regions,
             'PeopleQuery.LastName' => $this->lastName,
             'PeopleQuery.FirstName' => $this->firstName,
             'PeopleQuery.SecondName' => $this->secondName,
-            'PeopleQuery.BirthDate' => $this->birthDate,
-            'PeopleQuery.PassportSeries' => $this->passportSerial,
-            'PeopleQuery.PassportNumber' => $this->passportNumber,
-            'PeopleQuery.INN' => $this->inn,
+//            'PeopleQuery.BirthDate' => $this->birthDate,
+//            'PeopleQuery.PassportSeries' => $this->passportSerial,
+//            'PeopleQuery.PassportNumber' => $this->passportNumber,
+//            'PeopleQuery.INN' => $this->inn,
         ];
     }
 

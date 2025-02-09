@@ -123,6 +123,35 @@ abstract class AbstractRequest
 //        return collect();
 //    }
 
+    final public function getQueryParams(): array
+    {
+        return array_merge(
+            $this->queryParams(),
+            $this->customQueryParams,
+            $this->getDataProvider()->getCustomQueryParams()
+        );
+    }
+
+    protected function queryParams(): array
+    {
+        return $this->getParamsFromProperties()->toArray();
+    }
+
+    protected function bodyParams(): array
+    {
+        $keys = array_keys($this->queryParams());
+dump($keys);
+        $aaa = array_diff_assoc($this->queryParams(), $this->getParamsFromProperties()->toArray());
+        dd($aaa);
+        /*
+         * todo
+         * Если в запросе определён метод queryParams(), то перечисленные там свойства
+         * нужно исключить из body;
+         */
+
+        return $this->getParamsFromProperties()->toArray();
+    }
+
     private function getParamsFromProperties(): Collection
     {
         return $this->getPublicPropertiesWithValues(function (ReflectionProperty $property, mixed $value) {
@@ -136,30 +165,6 @@ abstract class AbstractRequest
         });
     }
 
-    protected function queryParams(): array
-    {
-        return $this->getParamsFromProperties()->toArray();
-    }
-
-    protected function bodyParams(): array
-    {
-        /*
-         * todo
-         * Если в запросе определён метод queryParams(), то перечисленные там свойства
-         * нужно исключить из body;
-         */
-
-        return $this->getParamsFromProperties()->toArray();
-    }
-
-    final public function getQueryParams(): array
-    {
-        return array_merge(
-            $this->queryParams(),
-            $this->customQueryParams,
-            $this->getDataProvider()->getCustomQueryParams()
-        );
-    }
 
     /**
      * @throws \Exception
@@ -316,7 +321,7 @@ abstract class AbstractRequest
         throw new Exception("Свойство '{$property->getName()}' в запросе '{$property->class}' должно быть инициализировано.");
     }
 
-    public function makeQueryString(array|Collection $queryParams, bool $noQuestion = true): ?string
+    public function makeQueryString(array|Collection $queryParams, bool $hasQuestion = true): ?string
     {
         if ($queryParams instanceof Collection) {
             $queryParams = $queryParams->toArray();
@@ -324,7 +329,7 @@ abstract class AbstractRequest
 
         $queryString = (!empty($queryParams) ? http_build_query($queryParams) : null);
 
-        return $queryString ? ($noQuestion ? '?' : null) . $queryString : null;
+        return $queryString ? ($hasQuestion ? '?' : null) . $queryString : null;
     }
 
     private function canBeString($var): bool
