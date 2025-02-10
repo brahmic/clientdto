@@ -5,7 +5,7 @@ namespace Brahmic\ClientDTO\Support\Factories;
 use Brahmic\ClientDTO\Attributes\Hidden;
 use Brahmic\ClientDTO\Attributes\HideFromBody;
 use Brahmic\ClientDTO\Attributes\HideFromQueryStr;
-use Brahmic\ClientDTO\Attributes\MapName;
+use Brahmic\ClientDTO\Attributes\Rename;
 use Brahmic\ClientDTO\Support\RequestDataProperty;
 use Closure;
 use Exception;
@@ -58,7 +58,7 @@ readonly class RequestDataPropertyFactory
 
 
         $mapOutputName = $attributes->first(function (object $attribute) {
-            return $attribute instanceof MapName;
+            return $attribute instanceof Rename;
         });
 
         $name = $mapOutputName ? $mapOutputName->output : $reflectionProperty->getName();

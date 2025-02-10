@@ -4,7 +4,7 @@ namespace Brahmic\ClientDTO\Attributes;
 
 use Spatie\LaravelData\Casts\Cast;
 
-interface CanCast
+interface Castable
 {
-    public function get(): Cast;
+    public function value(): mixed;
 }

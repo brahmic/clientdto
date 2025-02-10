@@ -2,14 +2,13 @@
 
 namespace Brahmic\ClientDTO\Test\Provider\Resources\Person\Requests;
 
-use Brahmic\ClientDTO\Attributes\Filter;
-use Brahmic\ClientDTO\Requests\GetRequest;
+use Brahmic\ClientDTO\Attributes\Hidden;
+use Brahmic\ClientDTO\Attributes\Rename;
 use Brahmic\ClientDTO\Requests\PostRequest;
 use Brahmic\ClientDTO\Test\Provider\Resources\Person\DTO\UUID;
 use Brahmic\ClientDTO\Test\Provider\Resources\Person\Support\PersonalData;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Carbon;
-use Spatie\LaravelData\Attributes\MapOutputName;
 
 
 class GetUuid extends PostRequest
@@ -20,29 +19,29 @@ class GetUuid extends PostRequest
 
     public const string URI = 'org-check.json';
 
-    #[Filter('filter', UUID::class)]
-    #[MapOutputName('PeopleQuery.Regions')]
+    #[Cast()]
+    #[Rename('PeopleQuery.Regions')]
     public array $regions;
 
-    #[MapOutputName('PeopleQuery.LastName')]
+    #[Rename('PeopleQuery.LastName')]
     public string $lastName;
 
-    #[MapOutputName('PeopleQuery.FirstName')]
+    #[Rename('PeopleQuery.FirstName')]
     public string $firstName;
 
-    #[MapOutputName('PeopleQuery.SecondName')]
+    #[Rename('PeopleQuery.SecondName')]
     public ?string $secondName = null;
 
-    #[MapOutputName('PeopleQuery.BirthDate')]
+    #[Rename('PeopleQuery.BirthDate')]
     public ?Carbon $birthDate = null;
 
-    #[MapOutputName('PeopleQuery.PassportSeries')]
+    #[Rename('PeopleQuery.PassportSeries')]
     public ?string $passportSerial = null;
 
-    #[MapOutputName('PeopleQuery.PassportNumber')]
+    #[Rename('PeopleQuery.PassportNumber')]
     public ?string $passportNumber = null;
 
-    #[MapOutputName('PeopleQuery.INN')]
+    #[Rename('PeopleQuery.INN')]
     public ?string $inn = null;
 
     //protected array $required = ['address'];
@@ -87,7 +86,7 @@ class GetUuid extends PostRequest
         ];
     }
 
-    protected function bodyParams(): array
+    protected function _bodyParams(): array
     {
         return [
             'regions' => $this->regions,
