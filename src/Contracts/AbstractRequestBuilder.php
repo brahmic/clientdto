@@ -6,7 +6,9 @@ use Brahmic\ClientDTO\Attributes\Filter;
 use Brahmic\ClientDTO\DataProviderClient;
 use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
-use Brahmic\ClientDTO\Support\ProcessedProperty;
+use Brahmic\ClientDTO\Support\Factories\RequestDataPropertyFactory;
+use Brahmic\ClientDTO\Support\PropertyContext;
+use Brahmic\ClientDTO\Support\RequestDataProperty;
 use Brahmic\ClientDTO\Support\PropertyCollection;
 use Brahmic\ClientDTO\Traits\CustomQueryParams;
 use Closure;
@@ -146,38 +148,24 @@ abstract class AbstractRequestBuilder
 
     protected function queryParams(): array
     {
-        return $this->getParamsFromProperties()->toArray();
+        return $this->getParamsFromProperties(PropertyContext::QueryString)->toArray();
     }
 
     final public function getBodyParams(): array
     {
-        if ($this->isQueryParamsOverride()) {
-            $paramsFromProperties = array_diff_key($this->bodyParams(), $this->queryParams());
-        } else {
-            $paramsFromProperties = $this->bodyParams();
-        }
-
         return array_merge(
-            $paramsFromProperties,
+            $this->bodyParams(),
         );
     }
 
     protected function bodyParams(): array
     {
-        return $this->getParamsFromProperties()->toArray();
+        return $this->getParamsFromProperties(PropertyContext::Body)->toArray();
     }
 
-    protected function getParamsFromProperties(): Collection
+    protected function getParamsFromProperties(PropertyContext $context): Collection
     {
-        return $this->getPublicPropertiesWithValues(function (ReflectionProperty $property, mixed $value) {
-            // можно обработать/кастовать к строке значение
-
-            /*
-             * Если можно привести к строке — приводим.
-             * Если указан атрибут кастования — кастуем.
-             */
-            return $this->canBeString($value) ? $value : '111';
-        });
+        return $this->getPublicPropertiesWithValues($context);
     }
 
 
@@ -277,52 +265,26 @@ abstract class AbstractRequestBuilder
         throw new \Exception($message . ' ' . static::class);
     }
 
-    private function getPublicPropertiesWithValues(?Closure $closure = null): Collection
+    private function getPublicPropertiesWithValues(PropertyContext $context): Collection
     {
         return $this->getOwnPublicProperties()
-            ->mapWithKeys(function (ReflectionProperty $property, $key) use ($closure) {
+            ->map(function (ReflectionProperty $property) {
+                return new RequestDataPropertyFactory($this)->make($property);
+            })
+            ->filter(function (RequestDataProperty $requestDataProperty) use ($context) {
 
-                $value = self::getObjectPropertyValue($this, $property, $closure);
-                $attributes = $property->getAttributes();
+                return
+                    !$requestDataProperty->hidden
+                    && !($context === PropertyContext::QueryString && $requestDataProperty->hideFromQueryStr)
+                    && !($context === PropertyContext::Body && $requestDataProperty->hideFromBody);
 
-                foreach ($attributes as $attribute) {
-                    $processed = ProcessedProperty::make($attribute->newInstance(), $value);
-                    dump($processed);
-                }
-
-                dd('----');
-                dump($property->getAttributes(Filter::class)[0]->newInstance());
-                dd($property->getAttributes(Filter::class)[0]->newInstance()->output);
-
-                $attributes = $property->getAttributes(MapOutputName::class);
-
-                if (!empty($attributes)) {
-                    $key = $attributes[0]->newInstance()->output;
-                }
-
-                return [
-                    $key => $value,
-                ];
+            })
+            ->mapWithKeys(function (RequestDataProperty $requestDataProperty) {
+                return [$requestDataProperty->name => $requestDataProperty->value,];
             });
     }
 
-
-    /**
-     * @throws Exception
-     */
-    private static function getObjectPropertyValue(object $obj, ReflectionProperty $property, ?Closure $closure = null): mixed
-    {
-        if ($property->isInitialized($obj)) {
-
-            $value = $obj->{$property->getName()};
-
-            return $closure ? $closure($property, $value) : $value;
-        }
-
-        throw new Exception("Свойство '{$property->getName()}' в запросе '{$property->class}' должно быть инициализировано.");
-    }
-
-    public function makeQueryString(array|Collection $queryParams, bool $hasQuestion = true): ?string
+    private function makeQueryString(array|Collection $queryParams, bool $hasQuestion = true): ?string
     {
         if ($queryParams instanceof Collection) {
             $queryParams = $queryParams->toArray();
@@ -333,17 +295,8 @@ abstract class AbstractRequestBuilder
         return $queryString ? ($hasQuestion ? '?' : null) . $queryString : null;
     }
 
-    private function canBeString($var): bool
-    {
-        try {
-            return is_scalar($var) || (is_object($var) && method_exists($var, '__toString')) || (string)$var !== null;
-        } catch (Throwable $e) {
-            return false;
-        }
-    }
 
-
-    function isMethodOverridden(string $methodName): bool
+    private function isMethodOverridden(string $methodName): bool
     {
         $reflectionClass = new ReflectionClass(static::class);
         $parentClass = $reflectionClass->getParentClass();
@@ -368,10 +321,10 @@ abstract class AbstractRequestBuilder
         return $this->isMethodOverridden('queryParams');
     }
 
-    protected function isBodyParamsOverride(): bool
-    {
-        return $this->isMethodOverridden('bodyParams');
-    }
+//    protected function isBodyParamsOverride(): bool
+//    {
+//        return $this->isMethodOverridden('bodyParams');
+//    }
 
 
     /**
