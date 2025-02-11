@@ -2,7 +2,6 @@
 
 namespace Brahmic\ClientDTO\Contracts;
 
-use Brahmic\ClientDTO\Attributes\Filter;
 use Brahmic\ClientDTO\DataProviderClient;
 use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
@@ -19,6 +18,11 @@ use Illuminate\Support\Collection;
 use ReflectionClass;
 use ReflectionProperty;
 use Spatie\LaravelData\Attributes\MapOutputName;
+use Spatie\LaravelData\Concerns\TransformableData;
+use Spatie\LaravelData\Data;
+use Spatie\LaravelData\Support\DataProperty;
+use Spatie\LaravelData\Support\Factories\DataClassFactory;
+use Spatie\LaravelData\WithData;
 use Throwable;
 
 /**
@@ -37,8 +41,9 @@ use Throwable;
  * Поддерживает атрибуты:
  * #[MapOutputName('new_name')]
  */
-abstract class AbstractRequestBuilder
+abstract class AbstractRequestBuilder extends Data
 {
+    use WithData;
     use CustomQueryParams;
 
     public const ?string URI = null;
@@ -265,8 +270,33 @@ abstract class AbstractRequestBuilder
         throw new \Exception($message . ' ' . static::class);
     }
 
+
     private function getPublicPropertiesWithValues(PropertyContext $context): Collection
     {
+
+        $dataClass = app(DataClassFactory::class)->build(new ReflectionClass(static::class));
+
+        $reflection = new \ReflectionClass(static::class);
+
+        foreach ($reflection->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
+            foreach ($property->getAttributes() as $attribute) {
+                dump($attribute->getName());
+            }
+        }
+
+
+//
+//        $dataClass->properties->each(function (DataProperty $property) use (&$data) {
+//           dump($property->hidden);
+//        });
+//
+//        $result = $dataClass->properties;
+
+        $this->except('regions', true);
+
+        dd($this->toArray());
+
+        //dd($this->exceptWhen([234, 234]));
         return $this->getOwnPublicProperties()
             ->map(function (ReflectionProperty $property) {
                 return new RequestDataPropertyFactory($this)->make($property);

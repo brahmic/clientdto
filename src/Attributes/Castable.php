@@ -6,5 +6,5 @@ use Spatie\LaravelData\Casts\Cast;
 
 interface Castable
 {
-    public function value(): mixed;
+    public function get(): mixed;
 }

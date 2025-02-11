@@ -22,6 +22,33 @@ readonly class RequestDataPropertyFactory
 
     }
 
+    static public function copyObjectWithPublicProperties(object $source)
+    {
+
+            // Создаем новый объект того же класса
+            $reflection = new \ReflectionClass($source);
+            $newObject = $reflection->newInstanceWithoutConstructor();
+
+            // Копируем публичные свойства
+            foreach ($reflection->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
+                $name = $property->getName();
+                $value = $property->getValue($source);
+
+                // Копируем значение свойства
+                $newObject->{$name} = $value;
+
+                // Копируем атрибуты свойства
+                foreach ($property->getAttributes() as $attribute) {
+                    $newAttribute = $attribute->newInstance();
+                    $reflectionProperty = new ReflectionProperty($newObject, $name);
+                    $reflectionProperty->setAttributes([$newAttribute]);
+                }
+            }
+
+            return $newObject;
+
+    }
+
     /**
      * @throws Exception
      */
@@ -94,9 +121,9 @@ readonly class RequestDataPropertyFactory
 
             $value = $this->object->{$property->getName()};
 
-            if (method_exists($this->object, $property->getName())) {
-                $value = $this->object->{$property->getName()}($value);
-            }
+//            if (method_exists($this->object, $property->getName())) {
+//                $value = $this->object->{$property->getName()}($value);
+//            }
 
             return $closure ? $closure($value, $property) : $value;
         }

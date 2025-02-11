@@ -2,9 +2,6 @@
 
 namespace Brahmic\ClientDTO\Support;
 
-use Brahmic\ClientDTO\Attributes\Filter;
-use Illuminate\Support\Collection;
-use Spatie\LaravelData\Attributes\MapOutputName;
 
 readonly class RequestDataProperty
 {
