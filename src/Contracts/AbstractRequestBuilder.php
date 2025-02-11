@@ -4,7 +4,7 @@ namespace Brahmic\ClientDTO\Contracts;
 
 use Brahmic\ClientDTO\Attributes\HideFromBody;
 use Brahmic\ClientDTO\Attributes\HideFromQueryStr;
-use Brahmic\ClientDTO\RemoteResourceProvider;
+use Brahmic\ClientDTO\ClientDTO;
 use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
 use Brahmic\ClientDTO\Support\Factories\RequestDataPropertyFactory;
@@ -62,7 +62,7 @@ abstract class AbstractRequestBuilder extends Data
      * @var int|null
      */
     protected ?int $timeout = null;
-    protected ?RemoteResourceProvider $dataProvider = null;
+    protected ?ClientDTO $dataProvider = null;
 
     private string $requestBodyType = RequestOptions::JSON;
 
@@ -210,12 +210,12 @@ abstract class AbstractRequestBuilder extends Data
         return static::NAME;
     }
 
-    public function getDataProvider(): RemoteResourceProvider
+    public function getDataProvider(): ClientDTO
     {
         return $this->dataProvider;
     }
 
-    public function setDataProvider(RemoteResourceProvider $dataProvider): static
+    public function setDataProvider(ClientDTO $dataProvider): static
     {
         $this->dataProvider = $dataProvider;
         return $this;

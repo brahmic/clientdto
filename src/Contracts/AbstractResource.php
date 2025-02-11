@@ -2,17 +2,17 @@
 
 namespace Brahmic\ClientDTO\Contracts;
 
-use Brahmic\ClientDTO\RemoteResourceProvider;
+use Brahmic\ClientDTO\ClientDTO;
 
 abstract class AbstractResource
 {
 
-    public function __construct(private readonly RemoteResourceProvider $dataProvider)
+    public function __construct(private readonly ClientDTO $dataProvider)
     {
 
     }
 
-    public function getDataProvider(): RemoteResourceProvider
+    public function getDataProvider(): ClientDTO
     {
         return $this->dataProvider;
     }

@@ -2,15 +2,15 @@
 
 namespace Brahmic\ClientDTO\Test\Provider;
 
-use Brahmic\ClientDTO\RemoteResourceProvider;
+use Brahmic\ClientDTO\ClientDTO;
 use Brahmic\ClientDTO\Test\Provider\Resources\Person\Person;
 use GuzzleHttp\RequestOptions;
 
-class SomeDataProvider extends RemoteResourceProvider
+class SomeDataProvider extends ClientDTO
 {
 
     // Системные запросы (получение uuid, прочее)
-    public function __construct(array $config = [])
+    public function __construct()
     {
 
 
