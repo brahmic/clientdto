@@ -26,22 +26,6 @@ trait CustomQueryParams
         return $this;
     }
 
-//    /**
-//     * Возвращает новый (!) объект с добавленным параметром (иммутабельный вариант).
-//     *
-//     * @param string $key
-//     * @param string $value
-//     * @return $this
-//     */
-//    public function withQueryParam(string $key, string $value): static
-//    {
-//        $new = clone $this;
-//        $new->queryParams[$key] = $value;
-//
-//        return $new;
-//    }
-
-
     /**
      * Прямо указывает, что старое значение будет дополнено новым (например, через запятую), что подходит для случаев, когда вы хотите собрать несколько значений в одном параметре.
      * Пример: ?tags=php,laravel,web (множество значений, объединенные в строку)

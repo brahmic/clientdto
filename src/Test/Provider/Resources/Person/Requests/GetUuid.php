@@ -2,16 +2,22 @@
 
 namespace Brahmic\ClientDTO\Test\Provider\Resources\Person\Requests;
 
-use Brahmic\ClientDTO\Attributes\Hidden;
-use Brahmic\ClientDTO\Attributes\Rename;
+use Brahmic\ClientDTO\Attributes\HideFromBody;
+use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
 use Brahmic\ClientDTO\Test\Provider\Resources\Person\DTO\UUID;
 use Brahmic\ClientDTO\Test\Provider\Resources\Person\Support\PersonalData;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Carbon;
+use Spatie\LaravelData\Attributes\Hidden;
+use Spatie\LaravelData\Attributes\MapInputName;
+use Spatie\LaravelData\Attributes\MapOutputName;
+use Spatie\LaravelData\Attributes\Validation\IP;
+use Spatie\LaravelData\Attributes\Validation\Max;
+use Spatie\LaravelData\Attributes\Validation\StartsWith;
 
 
-class GetUuid extends PostRequest
+class GetUuid extends GetRequest
 {
     public const string NAME = 'Получение идентификатора проверки физического лица';
 
@@ -19,29 +25,30 @@ class GetUuid extends PostRequest
 
     public const string URI = 'org-check.json';
 
-    #[Cast()]
-    #[Rename('PeopleQuery.Regions')]
+
+    #[HideFromBody]
     public array $regions;
 
-    #[Rename('PeopleQuery.LastName')]
+    #[MapOutputName('PeopleQuery.LastName')]
+    #[Max(15), IP, StartsWith('192.')]
     public string $lastName;
 
-    #[Rename('PeopleQuery.FirstName')]
+    #[MapOutputName('PeopleQuery.FirstName')]
     public string $firstName;
 
-    #[Rename('PeopleQuery.SecondName')]
+    #[MapOutputName('PeopleQuery.SecondName')]
     public ?string $secondName = null;
 
-    #[Rename('PeopleQuery.BirthDate')]
+    #[MapOutputName('PeopleQuery.BirthDate')]
     public ?Carbon $birthDate = null;
 
-    #[Rename('PeopleQuery.PassportSeries')]
+    #[MapOutputName('PeopleQuery.PassportSeries')]
     public ?string $passportSerial = null;
 
-    #[Rename('PeopleQuery.PassportNumber')]
+    #[MapOutputName('PeopleQuery.PassportNumber')]
     public ?string $passportNumber = null;
 
-    #[Rename('PeopleQuery.INN')]
+    #[MapOutputName('PeopleQuery.INN')]
     public ?string $inn = null;
 
     //protected array $required = ['address'];
@@ -61,16 +68,6 @@ class GetUuid extends PostRequest
         return $this->setParticular(get_defined_vars());
     }
 
-    /**
-     * Метод переопределён только ради подсказки PersonalData
-     *
-     * @param PersonalData|array|Arrayable $data
-     * @return $this
-     */
-    public function setFrom(PersonalData|array|Arrayable $data): static
-    {
-        return parent::setFrom($data);
-    }
 
     protected function _queryParams(): array
     {

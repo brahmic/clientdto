@@ -2,16 +2,17 @@
 
 namespace Brahmic\ClientDTO\Test\Provider;
 
-use Brahmic\ClientDTO\DataProviderClient;
+use Brahmic\ClientDTO\RemoteResourceProvider;
 use Brahmic\ClientDTO\Test\Provider\Resources\Person\Person;
 use GuzzleHttp\RequestOptions;
 
-class DataProvider extends DataProviderClient
+class SomeDataProvider extends RemoteResourceProvider
 {
 
     // Системные запросы (получение uuid, прочее)
     public function __construct(array $config = [])
     {
+
 
         $this
             ->setBaseUrl('https://example.com/services/')

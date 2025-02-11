@@ -4,7 +4,7 @@ namespace Brahmic\ClientDTO;
 
 use Brahmic\ClientDTO\Traits\CustomQueryParams;
 
-class DataProviderClient
+class RemoteResourceProvider
 {
 
     use CustomQueryParams;
@@ -18,6 +18,7 @@ class DataProviderClient
     private array $headers = [];
 
     private ?string $requestBodyType = null;
+
 
 
     /**

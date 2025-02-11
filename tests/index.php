@@ -8,7 +8,7 @@ require '../vendor/autoload.php';
 
 use Whoops\Run;
 use Whoops\Handler\PrettyPageHandler;
-use Brahmic\ClientDTO\Test\Provider\DataProvider;
+use Brahmic\ClientDTO\Test\Provider\SomeDataProvider;
 
 ob_start();
 // Создаем экземпляр Whoops
@@ -24,4 +24,4 @@ $whoops->register();
 
 ob_clean();
 
-new DataProvider();
+new SomeDataProvider();

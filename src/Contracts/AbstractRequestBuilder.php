@@ -2,7 +2,9 @@
 
 namespace Brahmic\ClientDTO\Contracts;
 
-use Brahmic\ClientDTO\DataProviderClient;
+use Brahmic\ClientDTO\Attributes\HideFromBody;
+use Brahmic\ClientDTO\Attributes\HideFromQueryStr;
+use Brahmic\ClientDTO\RemoteResourceProvider;
 use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
 use Brahmic\ClientDTO\Support\Factories\RequestDataPropertyFactory;
@@ -19,6 +21,7 @@ use ReflectionClass;
 use ReflectionProperty;
 use Spatie\LaravelData\Attributes\MapOutputName;
 use Spatie\LaravelData\Concerns\TransformableData;
+use Spatie\LaravelData\Contracts\BaseData as BaseDataContract;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Support\DataProperty;
 use Spatie\LaravelData\Support\Factories\DataClassFactory;
@@ -43,7 +46,6 @@ use Throwable;
  */
 abstract class AbstractRequestBuilder extends Data
 {
-    use WithData;
     use CustomQueryParams;
 
     public const ?string URI = null;
@@ -60,6 +62,7 @@ abstract class AbstractRequestBuilder extends Data
      * @var int|null
      */
     protected ?int $timeout = null;
+    protected ?RemoteResourceProvider $dataProvider = null;
 
     private string $requestBodyType = RequestOptions::JSON;
 
@@ -70,9 +73,7 @@ abstract class AbstractRequestBuilder extends Data
     }
 
 
-    public function __construct(private readonly DataProviderClient $dataProvider)
-    {
-    }
+
 
     public function send()
     {
@@ -110,35 +111,6 @@ abstract class AbstractRequestBuilder extends Data
         return $this->makeQueryString($this->getQueryParams());
     }
 
-//    public function getBodyParams(): array
-//    {
-//        try {
-//            if (method_exists($this, 'bodyParams')) {
-//                return $this->bodyParams();
-//            }
-//        } catch (\Throwable $exception) {
-//            throw new Exception("Ошибка при получении body параметров в классе. " . $exception->getMessage());
-//        }
-//
-//        return $this->getPublicPropertiesWithValues()->toArray();
-//    }
-//
-//    /**
-//     * @throws Exception
-//     */
-//    private function getCustomQueryParams(): Collection
-//    {
-//        try {
-//            if (method_exists($this, 'queryParams')) {
-//                return collect($this->queryParams());
-//            }
-//        } catch (\Throwable $exception) {
-//            throw new Exception("Ошибка при получении query параметров в классе. " . $exception->getMessage());
-//        }
-//
-//        return collect();
-//    }
-
     final public function getQueryParams(): array
     {
         return array_merge(
@@ -151,11 +123,6 @@ abstract class AbstractRequestBuilder extends Data
         );
     }
 
-    protected function queryParams(): array
-    {
-        return $this->getParamsFromProperties(PropertyContext::QueryString)->toArray();
-    }
-
     final public function getBodyParams(): array
     {
         return array_merge(
@@ -163,14 +130,38 @@ abstract class AbstractRequestBuilder extends Data
         );
     }
 
-    protected function bodyParams(): array
+    protected function queryParams(): array
     {
-        return $this->getParamsFromProperties(PropertyContext::Body)->toArray();
+        return $this->resolveRequestParams(PropertyContext::QueryString);
     }
 
-    protected function getParamsFromProperties(PropertyContext $context): Collection
+    protected function bodyParams(): array
     {
-        return $this->getPublicPropertiesWithValues($context);
+        return $this->resolveRequestParams(PropertyContext::Body);
+    }
+
+    private function resolveRequestParams(PropertyContext $context): array
+    {
+        $reflection = new \ReflectionClass(static::class);
+
+        foreach ($reflection->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
+            $attributes = $this->getAttributes($property);
+
+            $hideFromQueryStr = $attributes->contains(
+                fn(object $attribute) => $attribute instanceof HideFromQueryStr
+            );
+
+            $hideFromBody = $attributes->contains(
+                fn(object $attribute) => $attribute instanceof HideFromBody
+            );
+
+            if (($context === PropertyContext::Body && $hideFromBody) || ($context === PropertyContext::QueryString && $hideFromQueryStr)) {
+                $this->except($property->getName(), true);
+            }
+
+        }
+
+        return $this->transform();
     }
 
 
@@ -219,9 +210,15 @@ abstract class AbstractRequestBuilder extends Data
         return static::NAME;
     }
 
-    public function getDataProvider(): DataProviderClient
+    public function getDataProvider(): RemoteResourceProvider
     {
         return $this->dataProvider;
+    }
+
+    public function setDataProvider(RemoteResourceProvider $dataProvider): static
+    {
+        $this->dataProvider = $dataProvider;
+        return $this;
     }
 
     public function setParticular(array $data): static
@@ -229,8 +226,9 @@ abstract class AbstractRequestBuilder extends Data
         return self::setFrom(array_filter($data));
     }
 
-    public function setFrom(array|Arrayable $data): static
+    public function setFrom(BaseDataContract|Arrayable|array $data): static
     {
+        return self::from($data);
         if ($data instanceof Arrayable) {
             $data = $data->toArray();
         }
@@ -271,49 +269,67 @@ abstract class AbstractRequestBuilder extends Data
     }
 
 
-    private function getPublicPropertiesWithValues(PropertyContext $context): Collection
-    {
-
-        $dataClass = app(DataClassFactory::class)->build(new ReflectionClass(static::class));
-
-        $reflection = new \ReflectionClass(static::class);
-
-        foreach ($reflection->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
-            foreach ($property->getAttributes() as $attribute) {
-                dump($attribute->getName());
-            }
-        }
-
-
-
+//    private function getPublicPropertiesWithValues(PropertyContext $context): Collection
+//    {
+//        //$dataClass = app(DataClassFactory::class)->build(new ReflectionClass(static::class));
 //
-//        $dataClass->properties->each(function (DataProperty $property) use (&$data) {
-//           dump($property->hidden);
-//        });
 //
-//        $result = $dataClass->properties;
-
-        $this->except('regions', true);
-
-        dd($this->toArray());
-
-        //dd($this->exceptWhen([234, 234]));
-        return $this->getOwnPublicProperties()
-            ->map(function (ReflectionProperty $property) {
-                return new RequestDataPropertyFactory($this)->make($property);
-            })
-            ->filter(function (RequestDataProperty $requestDataProperty) use ($context) {
-
-                return
-                    !$requestDataProperty->hidden
-                    && !($context === PropertyContext::QueryString && $requestDataProperty->hideFromQueryStr)
-                    && !($context === PropertyContext::Body && $requestDataProperty->hideFromBody);
-
-            })
-            ->mapWithKeys(function (RequestDataProperty $requestDataProperty) {
-                return [$requestDataProperty->name => $requestDataProperty->value,];
-            });
-    }
+//        //$dataClass = app(DataClassFactory::class)->build(new ReflectionClass(static::class));
+//
+//        $reflection = new \ReflectionClass(static::class);
+//
+//
+//        foreach ($reflection->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
+//            $attributes = $this->getAttributes($property);
+//
+//            $hideFromQueryStr = $attributes->contains(
+//                fn(object $attribute) => $attribute instanceof HideFromQueryStr
+//            );
+//
+//            $hideFromBody = $attributes->contains(
+//                fn(object $attribute) => $attribute instanceof HideFromBody
+//            );
+//
+//            if (($context === PropertyContext::Body && $hideFromBody) || ($context === PropertyContext::QueryString && $hideFromQueryStr)) {
+//                $this->except($property->getName(), true);
+//            }
+//
+//            foreach ($property->getAttributes() as $attribute) {
+//                dump($attribute->getName());
+//            }
+//        }
+//
+//        dd($this->toArray());
+//
+//
+////
+////        $dataClass->properties->each(function (DataProperty $property) use (&$data) {
+////           dump($property->hidden);
+////        });
+////
+////        $result = $dataClass->properties;
+//
+//        //$this->except('regions', true);
+//
+//        //dd($this->toArray());
+//
+//        //dd($this->exceptWhen([234, 234]));
+//        return $this->getOwnPublicProperties()
+//            ->map(function (ReflectionProperty $property) {
+//                return new RequestDataPropertyFactory($this)->make($property);
+//            })
+//            ->filter(function (RequestDataProperty $requestDataProperty) use ($context) {
+//
+//                return
+//                    !$requestDataProperty->hidden
+//                    && !($context === PropertyContext::QueryString && $requestDataProperty->hideFromQueryStr)
+//                    && !($context === PropertyContext::Body && $requestDataProperty->hideFromBody);
+//
+//            })
+//            ->mapWithKeys(function (RequestDataProperty $requestDataProperty) {
+//                return [$requestDataProperty->name => $requestDataProperty->value,];
+//            });
+//    }
 
     private function makeQueryString(array|Collection $queryParams, bool $hasQuestion = true): ?string
     {
@@ -392,5 +408,12 @@ abstract class AbstractRequestBuilder extends Data
     public function isPostRequest(): bool
     {
         return $this instanceof PostRequest;
+    }
+
+    private function getAttributes(ReflectionProperty $reflectionProperty): Collection
+    {
+        return collect($reflectionProperty->getAttributes())
+            ->filter(fn(\ReflectionAttribute $attribute) => class_exists($attribute->getName()))
+            ->map(fn(\ReflectionAttribute $attribute) => $attribute->newInstance());
     }
 }
