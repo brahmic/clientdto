@@ -7,14 +7,14 @@ use Brahmic\ClientDTO\ClientDTO;
 abstract class AbstractResource
 {
 
-    public function __construct(private readonly ClientDTO $dataProvider)
+    public function __construct(private readonly ClientDTO $clientDTO)
     {
 
     }
 
-    public function getDataProvider(): ClientDTO
+    public function getClientDTO(): ClientDTO
     {
-        return $this->dataProvider;
+        return $this->clientDTO;
     }
 
 }

@@ -62,7 +62,8 @@ abstract class AbstractRequestBuilder extends Data
      * @var int|null
      */
     protected ?int $timeout = null;
-    protected ?ClientDTO $dataProvider = null;
+
+    protected ?ClientDTO $clientDTO = null;
 
     private string $requestBodyType = RequestOptions::JSON;
 
@@ -73,10 +74,15 @@ abstract class AbstractRequestBuilder extends Data
     }
 
 
+//    public function __construct(public ClientDTO $clientDTO)
+//    {
+//
+//    }
 
 
     public function send()
     {
+
         dump($this->isPostRequest() ? 'POST' : 'GET');
         //$this->getQueryParams();
 
@@ -92,10 +98,10 @@ abstract class AbstractRequestBuilder extends Data
 
 
             if ($this instanceof GetRequest) {
-                $this->getDataProvider()->get($this);
+                $this->getClientDTO()->get($this);
             }
             if ($this instanceof PostRequest) {
-                $this->getDataProvider()->post($this);
+                $this->getClientDTO()->post($this);
             }
 
         } catch (\Throwable $throwable) {
@@ -119,7 +125,7 @@ abstract class AbstractRequestBuilder extends Data
             // параметры, которые могли быть добавлены динамически в классе запроса через другие методы
             $this->getCustomQueryParams(),
             // параметры, которые были указаны в клиенте
-            $this->getDataProvider()->getCustomQueryParams()
+            $this->getClientDTO()->getCustomQueryParams()
         );
     }
 
@@ -185,7 +191,7 @@ abstract class AbstractRequestBuilder extends Data
 
     public function getTimeout(): int
     {
-        return $this->timeout ?: $this->getDataProvider()->getTimeout();
+        return $this->timeout ?: $this->getClientDTO()->getTimeout();
     }
 
     public function setTimeout(int $timeout): self
@@ -197,7 +203,7 @@ abstract class AbstractRequestBuilder extends Data
 
     public function getUrl(): string
     {
-        return $this->getDataProvider()->getBaseUrl($this->getUri());   //todo?
+        return $this->getClientDTO()->getBaseUrl($this->getUri());   //todo?
     }
 
     public static function getUri(): string
@@ -210,14 +216,14 @@ abstract class AbstractRequestBuilder extends Data
         return static::NAME;
     }
 
-    public function getDataProvider(): ClientDTO
+    public function getClientDTO(): ClientDTO
     {
-        return $this->dataProvider;
+        return $this->clientDTO;
     }
 
-    public function setDataProvider(ClientDTO $dataProvider): static
+    public function setClientDTO(ClientDTO $clientDTO): static
     {
-        $this->dataProvider = $dataProvider;
+        $this->clientDTO = $clientDTO;
         return $this;
     }
 
