@@ -7,14 +7,19 @@ use Brahmic\ClientDTO\ClientDTO;
 abstract class AbstractResource
 {
 
-    public function __construct(private readonly ClientDTO $clientDTO)
+    public function __construct()
     {
 
     }
 
     public function getClientDTO(): ClientDTO
     {
-        return $this->clientDTO;
+        return $this->resolveClient(static::class);
+    }
+
+    private function resolveClient(string $class) :ClientDTO
+    {
+        return new $class();
     }
 
 }

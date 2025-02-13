@@ -2,7 +2,11 @@
 
 namespace Brahmic\ClientDTO;
 
+use Brahmic\ClientDTO\Contracts\AbstractRequestBuilder;
+use Brahmic\ClientDTO\Contracts\AbstractResource;
 use Brahmic\ClientDTO\Traits\CustomQueryParams;
+use Illuminate\Support\Collection;
+use ReflectionClass;
 
 class ClientDTO
 {
@@ -121,6 +125,50 @@ class ClientDTO
     {
         $this->baseUrl = $baseUrl;
 
+        $result = $this->collectResources(static::class, AbstractResource::class)
+            ->mapWithKeys(function (string $resourceClass) {
+                return [
+                    $resourceClass => collect([
+                        'client' => $this::class,
+                        'requests' => $this->collectResources($resourceClass, AbstractRequestBuilder::class)
+                    ])
+                ];
+            });
+
+
+        $requests = $result->mapWithKeys(function ($value, $key) {
+            return [$key => $value['client']];
+        });
+
+        dump($result->toArray());
+        dump($requests->toArray());
+
+        dd($requests = $result->flatten(2)->toArray());
+        //dd($this->collectResources(AbstractResource::class));
+
         return $this;
+    }
+
+    private function collectResources(string $sourceClass, string $targetClass): Collection
+    {
+
+        $reflectionClass = new ReflectionClass($sourceClass);
+        $methods = $reflectionClass->getMethods();
+
+        $result = collect();
+
+        foreach ($methods as $method) {
+            $returnType = $method->getReturnType();
+            if ($returnType) {
+                $returnTypeName = $returnType->getName();
+
+                // Проверяем, является ли возвращаемый тип подклассом $parentClassName
+                if (is_subclass_of($returnTypeName, $targetClass)) {
+                    $result->push($returnTypeName);
+                }
+            }
+        }
+
+        return $result;
     }
 }
