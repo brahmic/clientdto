@@ -136,14 +136,22 @@ class ClientDTO
             });
 
 
-        $requests = $result->mapWithKeys(function ($value, $key) {
+        $resources = $result->mapWithKeys(function ($value, $key) {
             return [$key => $value['client']];
         });
 
         dump($result->toArray());
-        dump($requests->toArray());
+        dump($resources->toArray());
 
-        dd($requests = $result->flatten(2)->toArray());
+        dd($requests = $result
+            ->map(function ($value, $key) {
+                $client = $value['client'];
+                return  $value['requests']->mapWithKeys(function ($value) use ($key, $client) {
+                    return [$value => $client];
+                });
+            })
+            //->flatMap(fn($items) => $items)
+            ->toArray());
         //dd($this->collectResources(AbstractResource::class));
 
         return $this;
@@ -161,9 +169,9 @@ class ClientDTO
             $returnType = $method->getReturnType();
             if ($returnType) {
                 $returnTypeName = $returnType->getName();
-
                 // Проверяем, является ли возвращаемый тип подклассом $parentClassName
                 if (is_subclass_of($returnTypeName, $targetClass)) {
+
                     $result->push($returnTypeName);
                 }
             }

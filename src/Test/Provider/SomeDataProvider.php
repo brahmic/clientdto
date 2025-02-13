@@ -3,6 +3,7 @@
 namespace Brahmic\ClientDTO\Test\Provider;
 
 use Brahmic\ClientDTO\ClientDTO;
+use Brahmic\ClientDTO\Test\Provider\Resources\Organization\Organization;
 use Brahmic\ClientDTO\Test\Provider\Resources\Person\Person;
 use GuzzleHttp\RequestOptions;
 
@@ -56,5 +57,9 @@ class SomeDataProvider extends ClientDTO
     public function person(): Person
     {
         return new Person($this);
+    }
+    public function organization(): Organization
+    {
+        return new Organization($this);
     }
 }
