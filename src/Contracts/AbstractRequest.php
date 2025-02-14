@@ -7,44 +7,19 @@ use Brahmic\ClientDTO\Attributes\HideFromQueryStr;
 use Brahmic\ClientDTO\ClientDTO;
 use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
-use Brahmic\ClientDTO\Support\Factories\RequestDataPropertyFactory;
+use Brahmic\ClientDTO\Support\ClientResolver;
 use Brahmic\ClientDTO\Support\PropertyContext;
-use Brahmic\ClientDTO\Support\RequestDataProperty;
-use Brahmic\ClientDTO\Support\PropertyCollection;
 use Brahmic\ClientDTO\Traits\CustomQueryParams;
-use Closure;
 use Exception;
 use GuzzleHttp\RequestOptions;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Collection;
 use ReflectionClass;
 use ReflectionProperty;
-use Spatie\LaravelData\Attributes\MapOutputName;
-use Spatie\LaravelData\Concerns\TransformableData;
-use Spatie\LaravelData\Contracts\BaseData as BaseDataContract;
 use Spatie\LaravelData\Data;
-use Spatie\LaravelData\Support\DataProperty;
-use Spatie\LaravelData\Support\Factories\DataClassFactory;
-use Spatie\LaravelData\WithData;
-use Throwable;
 
-/**
- * Для GET запросов
- * Все публичные свойства считаются query параметром, если не определён метод queryParams();
- * в противном случае query параметры будут извлечены через метод queryParams()
- *
- * Для POST запросов
- * Все публичные свойства автоматически считаются body, если не определён метод bodyParams();
- * в противном случае query параметры будут извлечены через метод bodyParams()
- *
- * Если указан метод queryParams(), то эти свойства будут использованы для
- * формирования query и проигнорированы в body, если он буден собран автоматически.
- *
- *
- * Поддерживает атрибуты:
- * #[MapOutputName('new_name')]
- */
-abstract class AbstractRequestBuilder extends Data
+
+abstract class AbstractRequest extends Data
 {
     use CustomQueryParams;
 
@@ -73,25 +48,29 @@ abstract class AbstractRequestBuilder extends Data
         return $this->requestBodyType;
     }
 
+    public function isGet(): bool
+    {
+        return $this instanceof GetRequest;
+    }
 
-//    public function __construct(public ClientDTO $clientDTO)
-//    {
-//
-//    }
-
+    public function isPost(): bool
+    {
+        return $this instanceof PostRequest;
+    }
 
     public function send()
     {
 
-        dump($this->isPostRequest() ? 'POST' : 'GET');
+        dump($this->isPost() ? 'POST' : 'GET');
         //$this->getQueryParams();
-
+        dump($this);
         dump('=====[   getQueryParamsAsString');
         dump($this->getQueryParamsAsString());
         dump('=====[   getQueryParams');
         dump($this->getQueryParams());
         dump('=====[   getBodyParams');
         dump($this->getBodyParams());
+
         dd('send');
 
         try {
@@ -218,28 +197,19 @@ abstract class AbstractRequestBuilder extends Data
 
     public function getClientDTO(): ClientDTO
     {
-        return $this->clientDTO;
+        return $this->clientDTO = $this->clientDTO ?: ClientResolver::resolve(static::class);
     }
 
-    public function setClientDTO(ClientDTO $clientDTO): static
+    public function fill(object|array $data, bool $filter = false): static
     {
-        $this->clientDTO = $clientDTO;
-        return $this;
-    }
-
-    public function setParticular(array $data): static
-    {
-        return self::setFrom(array_filter($data));
-    }
-
-    public function setFrom(BaseDataContract|Arrayable|array $data): static
-    {
-        return self::from($data);
         if ($data instanceof Arrayable) {
             $data = $data->toArray();
         }
+        if ($filter) {
+            $data = array_filter($data);
+        }
 
-        $properties = $this->getOwnPublicProperties();
+        $properties = $this->getOwnProperties(ReflectionProperty::IS_PUBLIC);
 
         $properties->each(function (ReflectionProperty $property) use (&$data) {
             $propertyName = $property->getName();
@@ -252,6 +222,26 @@ abstract class AbstractRequestBuilder extends Data
         return $this;
     }
 
+    /**
+     * @param string $message
+     * @return void
+     * @throws \Exception
+     */
+    private static function exception(string $message): void
+    {
+        throw new \Exception($message . ' ' . static::class);
+    }
+
+    private function makeQueryString(array|Collection $queryParams, bool $hasQuestion = true): ?string
+    {
+        if ($queryParams instanceof Collection) {
+            $queryParams = $queryParams->toArray();
+        }
+
+        $queryString = (!empty($queryParams) ? http_build_query($queryParams) : null);
+
+        return $queryString ? ($hasQuestion ? '?' : null) . $queryString : null;
+    }
 
     private function setPropertyValue($propertyName, $value, ?ReflectionProperty $property = null): void
     {
@@ -265,155 +255,28 @@ abstract class AbstractRequestBuilder extends Data
     }
 
     /**
-     * @param string $message
-     * @return void
-     * @throws \Exception
+     * @param int|null $filter
+     * @return Collection
      */
-    private static function exception(string $message): void
+    private static function getOwnProperties(?int $filter = null): Collection
     {
-        throw new \Exception($message . ' ' . static::class);
+        return self::getProperties(static::class, $filter);
+
     }
 
-
-//    private function getPublicPropertiesWithValues(PropertyContext $context): Collection
-//    {
-//        //$dataClass = app(DataClassFactory::class)->build(new ReflectionClass(static::class));
-//
-//
-//        //$dataClass = app(DataClassFactory::class)->build(new ReflectionClass(static::class));
-//
-//        $reflection = new \ReflectionClass(static::class);
-//
-//
-//        foreach ($reflection->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
-//            $attributes = $this->getAttributes($property);
-//
-//            $hideFromQueryStr = $attributes->contains(
-//                fn(object $attribute) => $attribute instanceof HideFromQueryStr
-//            );
-//
-//            $hideFromBody = $attributes->contains(
-//                fn(object $attribute) => $attribute instanceof HideFromBody
-//            );
-//
-//            if (($context === PropertyContext::Body && $hideFromBody) || ($context === PropertyContext::QueryString && $hideFromQueryStr)) {
-//                $this->except($property->getName(), true);
-//            }
-//
-//            foreach ($property->getAttributes() as $attribute) {
-//                dump($attribute->getName());
-//            }
-//        }
-//
-//        dd($this->toArray());
-//
-//
-////
-////        $dataClass->properties->each(function (DataProperty $property) use (&$data) {
-////           dump($property->hidden);
-////        });
-////
-////        $result = $dataClass->properties;
-//
-//        //$this->except('regions', true);
-//
-//        //dd($this->toArray());
-//
-//        //dd($this->exceptWhen([234, 234]));
-//        return $this->getOwnPublicProperties()
-//            ->map(function (ReflectionProperty $property) {
-//                return new RequestDataPropertyFactory($this)->make($property);
-//            })
-//            ->filter(function (RequestDataProperty $requestDataProperty) use ($context) {
-//
-//                return
-//                    !$requestDataProperty->hidden
-//                    && !($context === PropertyContext::QueryString && $requestDataProperty->hideFromQueryStr)
-//                    && !($context === PropertyContext::Body && $requestDataProperty->hideFromBody);
-//
-//            })
-//            ->mapWithKeys(function (RequestDataProperty $requestDataProperty) {
-//                return [$requestDataProperty->name => $requestDataProperty->value,];
-//            });
-//    }
-
-    private function makeQueryString(array|Collection $queryParams, bool $hasQuestion = true): ?string
+    private static function getProperties(string $class, ?int $filter = null): Collection
     {
-        if ($queryParams instanceof Collection) {
-            $queryParams = $queryParams->toArray();
-        }
+        $class = new \ReflectionClass($class);
 
-        $queryString = (!empty($queryParams) ? http_build_query($queryParams) : null);
-
-        return $queryString ? ($hasQuestion ? '?' : null) . $queryString : null;
-    }
-
-
-    private function isMethodOverridden(string $methodName): bool
-    {
-        $reflectionClass = new ReflectionClass(static::class);
-        $parentClass = $reflectionClass->getParentClass();
-
-        if (!$parentClass) {
-            return false; // Нет родительского класса
-        }
-
-        if (!$parentClass->hasMethod($methodName)) {
-            return false; // Метод отсутствует в родительском классе
-        }
-
-        $method = $reflectionClass->getMethod($methodName);
-        $parentMethod = $parentClass->getMethod($methodName);
-
-        // Сравниваем, где объявлен метод
-        return $method->getDeclaringClass()->getName() !== $parentMethod->getDeclaringClass()->getName();
-    }
-
-    protected function isQueryParamsOverride(): bool
-    {
-        return $this->isMethodOverridden('queryParams');
-    }
-
-//    protected function isBodyParamsOverride(): bool
-//    {
-//        return $this->isMethodOverridden('bodyParams');
-//    }
-
-
-    /**
-     * @return Collection<ReflectionProperty>
-     */
-    private function getOwnPublicProperties(): Collection
-    {
-        return self::getOwnProperties(ReflectionProperty::IS_PUBLIC);
-    }
-
-    /**
-     * @return PropertyCollection<ReflectionProperty>
-     */
-    private static function getOwnProperties(?int $filter = null): PropertyCollection
-    {
-        $class = new \ReflectionClass(static::class);
-
-        $result = PropertyCollection::make();
+        $result = Collection::make();
 
         foreach ($class->getProperties($filter) as $reflectionProperty) {
-            if ($reflectionProperty->class === static::class) {
+            if ($reflectionProperty->class === $class) {
                 $result->put($reflectionProperty->getName(), $reflectionProperty);
             }
         }
 
         return $result;
-    }
-
-    public function isGetRequest(): bool
-    {
-        return $this instanceof GetRequest;
-    }
-
-    public function isPostRequest(): bool
-    {
-        return $this instanceof PostRequest;
     }
 
     private function getAttributes(ReflectionProperty $reflectionProperty): Collection
@@ -422,4 +285,5 @@ abstract class AbstractRequestBuilder extends Data
             ->filter(fn(\ReflectionAttribute $attribute) => class_exists($attribute->getName()))
             ->map(fn(\ReflectionAttribute $attribute) => $attribute->newInstance());
     }
+
 }

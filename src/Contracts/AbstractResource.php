@@ -3,23 +3,15 @@
 namespace Brahmic\ClientDTO\Contracts;
 
 use Brahmic\ClientDTO\ClientDTO;
+use Brahmic\ClientDTO\Support\ClientResolver;
 
 abstract class AbstractResource
 {
-
-    public function __construct()
-    {
-
-    }
+    private ?ClientDTO $clientDTO;
 
     public function getClientDTO(): ClientDTO
     {
-        return $this->resolveClient(static::class);
-    }
+        return $this->clientDTO = $this->clientDTO ?: ClientResolver::resolve(static::class);
 
-    private function resolveClient(string $class) :ClientDTO
-    {
-        return new $class();
     }
-
 }

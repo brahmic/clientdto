@@ -2,9 +2,9 @@
 
 namespace Brahmic\ClientDTO\Requests;
 
-use Brahmic\ClientDTO\Contracts\AbstractRequestBuilder;
+use Brahmic\ClientDTO\Contracts\AbstractRequest;
 
-class PostRequest extends AbstractRequestBuilder
+class PostRequest extends AbstractRequest
 {
 
 

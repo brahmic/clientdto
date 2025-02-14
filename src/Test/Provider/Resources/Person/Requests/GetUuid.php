@@ -2,18 +2,13 @@
 
 namespace Brahmic\ClientDTO\Test\Provider\Resources\Person\Requests;
 
-use Brahmic\ClientDTO\Attributes\HideFromBody;
 use Brahmic\ClientDTO\Requests\GetRequest;
-use Brahmic\ClientDTO\Requests\PostRequest;
 use Brahmic\ClientDTO\Test\Provider\Resources\Person\DTO\UUID;
-use Brahmic\ClientDTO\Test\Provider\Resources\Person\Support\PersonalData;
-use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Carbon;
-use Spatie\LaravelData\Attributes\Hidden;
-use Spatie\LaravelData\Attributes\MapInputName;
 use Spatie\LaravelData\Attributes\MapOutputName;
 use Spatie\LaravelData\Attributes\Validation\IP;
 use Spatie\LaravelData\Attributes\Validation\Max;
+use Spatie\LaravelData\Attributes\Validation\Required;
 use Spatie\LaravelData\Attributes\Validation\StartsWith;
 
 
@@ -26,8 +21,10 @@ class GetUuid extends GetRequest
     public const string URI = 'org-check.json';
 
 
-    #[HideFromBody]
+    //#[HideFromBody]
+    #[Required]
     public array $regions;
+    public ?array $rasdasdasds = [];
 
     #[MapOutputName('PeopleQuery.LastName')]
     #[Max(15), IP, StartsWith('192.')]

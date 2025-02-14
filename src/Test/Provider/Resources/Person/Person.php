@@ -15,7 +15,7 @@ class Person extends AbstractResource
      */
     public function createUuid(?PersonalData $personalData = null): GetUuid
     {
-        return tap(new GetUuid()->setClientDTO($this->getClientDTO()), function (GetUuid $getUuid) use ($personalData) {
+        return tap(new GetUuid(), function (GetUuid $getUuid) use ($personalData) {
             if ($personalData !== null) {
                 $getUuid->setFrom($personalData);
             }
