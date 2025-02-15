@@ -12,7 +12,7 @@ use Spatie\LaravelData\Attributes\Validation\Required;
 use Spatie\LaravelData\Attributes\Validation\StartsWith;
 
 
-class GetUuid extends GetRequest
+class GetPersonUuid extends GetRequest
 {
     public const string NAME = 'Получение идентификатора проверки физического лица';
 
@@ -62,7 +62,7 @@ class GetUuid extends GetRequest
         $this->attachQueryParam('sdsd', 'value2');
         $this->attachQueryParam('sdsd', 'value3');
 
-        return $this->setParticular(get_defined_vars());
+        return $this->fill(get_defined_vars(), filter: true);
     }
 
 

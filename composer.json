@@ -28,7 +28,8 @@
     "files": [
     ],
     "psr-4": {
-      "Brahmic\\ClientDTO\\": "./src"
+      "Brahmic\\ClientDTO\\": "./src",
+      "Brahmic\\ClientDTO\\Test\\": "./tests"
     }
   },
   "extra": {

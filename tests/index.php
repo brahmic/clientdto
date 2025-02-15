@@ -6,9 +6,9 @@ error_reporting(E_ALL);
 
 require '../vendor/autoload.php';
 
-use Whoops\Run;
+use Brahmic\ClientDTO\Test\Provider\SomeDataClient;
 use Whoops\Handler\PrettyPageHandler;
-use Brahmic\ClientDTO\Test\Provider\SomeDataProvider;
+use Whoops\Run;
 
 ob_start();
 // Создаем экземпляр Whoops
@@ -24,4 +24,4 @@ $whoops->register();
 
 ob_clean();
 
-new SomeDataProvider();
+new SomeDataClient();
