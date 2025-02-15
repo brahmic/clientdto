@@ -7,7 +7,7 @@ use Brahmic\ClientDTO\Support\ClientResolver;
 
 abstract class AbstractResource
 {
-    private ?ClientDTO $clientDTO;
+    private ?ClientDTO $clientDTO = null;
 
     public function getClientDTO(): ClientDTO
     {

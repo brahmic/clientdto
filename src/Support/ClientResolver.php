@@ -8,6 +8,7 @@ use Brahmic\ClientDTO\Contracts\AbstractResource;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use InvalidArgumentException;
 use ReflectionClass;
 
 class ClientResolver
@@ -17,55 +18,76 @@ class ClientResolver
     private array $clients = [];
 
 
-    public static function registerClient(ClientDTO|string $clientDTO, bool $force = false): array
+    public static function registerClient(ClientDTO|string $clientDTO, bool $force = false): Collection
     {
         $resolver = self::getInstance();
 
         $clientDTOClass = is_object($clientDTO) ? $clientDTO::class : $clientDTO;
 
-        $data = [
-            'clientClass' => $clientDTOClass,
-            'resourceMap' => $resolver->createClientResourcesMap($clientDTOClass, $force),
-        ];
+        $data = collect([
+            'client' => $clientDTOClass,
+            ...$resolver->createClientResourcesMap($clientDTOClass, $force),
+        ]);
 
         $resolver->clients[$resolver->getKey($clientDTOClass)] = $data;
 
         return $data;
     }
 
-    public static function resolve(string $resourceClass): ClientDTO
+    public static function resolveResource(string $resourceClass): ?AbstractResource
     {
         $resolver = self::getInstance();
 
-        $clientClass = $resolver->getResourceMap($resourceClass)->get($resourceClass);
+        $data = $resolver->getData($resourceClass);
 
-        if (!$clientClass) {
-
-            //try again, maybe it was renamed
-            $resolver->registerClient($resolver->extractClassName($resourceClass), force: true);
-
-            if (!$clientClass = $resolver->getResourceMap($resourceClass)->get($resourceClass)) {
-
-                // need to check $resourceClass namespace
-                throw new \Exception("Can't resolve Resource or request with name {$resourceClass}.");
-            }
-
+        if (array_key_exists('resource', $data) && $clientClass = $data['resource']) {
+            return app($clientClass);
         }
+
+        return null;
+    }
+
+    public static function resolve(string $resourceOrRequestClass): ClientDTO
+    {
+        $resolver = self::getInstance();
+
+        $data = $resolver->getData($resourceOrRequestClass);
+
+        $clientClass = $data['client'];
 
         return app($clientClass);
     }
 
+    private function getData(string $class): array
+    {
+        $data = $this->getResourceMap($class)->get($class);
+
+        if (!$data) {
+
+            //try again, maybe it was renamed
+            $this->registerClient($this->extractClassName($class), force: true);
+
+            if (!$data = $this->getResourceMap($class)->get($class)) {
+
+                // need to check $resourceClass namespace
+                throw new \Exception("Can't resolve Resource or request with name {$class}.");
+            }
+        }
+
+        return $data;
+    }
+
     private function extractClassName(string $resourceClass): string
     {
-        return $this->extractRegistered($resourceClass)['clientClass'];
+        return $this->extractRegistered($resourceClass)['client'];
     }
 
     private function getResourceMap(string $resourceClass): Collection
     {
-        return $this->extractRegistered($resourceClass)['resourceMap'];
+        return $this->extractRegistered($resourceClass);
     }
 
-    private function extractRegistered(string $class): array
+    private function extractRegistered(string $class): Collection
     {
         if (!$client = $this->clients[$this->getKey($class)]) {
             throw new \Exception("ClientDTO with {$this->getKey($class)} key not registered");
@@ -91,23 +113,25 @@ class ClientResolver
         $collectedClientResources = $this->collectClientResources($clientClass);
 
         $resources = $collectedClientResources->mapWithKeys(function ($value, $key) {
-            return [$key => $value['client']];
+            return [$key => ['client' => $value['client']]];
         });
 
         $requests = $collectedClientResources
             ->map(function ($resource, $key) {
                 return $resource['requests']->mapWithKeys(function ($value) use ($key, $resource) {
-                    return [$value => $resource['client']];
+                    return [$value => [
+                        'client' => $resource['client'],
+                        'resource' => $resource['resource'],
+                    ]];
                 });
             })
-            ->flatMap(fn($items) => $items)
-            ->toArray();
+            ->flatMap(fn($items) => $items);
 
         $collected = $resources->merge($requests);
 
         Cache::put($cacheKey, $collected, Carbon::now()->addMonth());
 
-        return $resources->merge($requests);
+        return $collected;
     }
 
     private function collectClientResources(string $clientClass): Collection
@@ -117,6 +141,7 @@ class ClientResolver
                 return [
                     $resourceClass => collect([
                         'client' => $clientClass,
+                        'resource' => $resourceClass,
                         'requests' => $this->collectResources($resourceClass, AbstractRequest::class)
                     ])
                 ];

@@ -10,18 +10,18 @@ use Brahmic\ClientDTO\Requests\PostRequest;
 use Brahmic\ClientDTO\Support\ClientResolver;
 use Brahmic\ClientDTO\Support\PropertyContext;
 use Brahmic\ClientDTO\Traits\CustomQueryParams;
+use Brahmic\ClientDTO\Traits\Timeout;
 use Exception;
 use GuzzleHttp\RequestOptions;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Collection;
-use ReflectionClass;
 use ReflectionProperty;
 use Spatie\LaravelData\Data;
 
 
 abstract class AbstractRequest extends Data
 {
-    use CustomQueryParams;
+    use CustomQueryParams, Timeout;
 
     public const ?string URI = null;
 
@@ -29,18 +29,16 @@ abstract class AbstractRequest extends Data
 
     public const string NAME = 'Абстрактный запрос';
 
-    public const string REQUEST_OPTIONS = RequestOptions::JSON;
+    //public const string REQUEST_OPTIONS = RequestOptions::JSON;
 
-    /**
-     * Если null, будет проинициализировано значением по умолчанию из Client
-     *
-     * @var int|null
-     */
-    protected ?int $timeout = null;
-
-    protected ?ClientDTO $clientDTO = null;
 
     private string $requestBodyType = RequestOptions::JSON;
+
+    private ?ClientDTO $clientDTO = null;
+
+    private ?AbstractResource $resource = null;
+
+
 
 
     public function getRequestBodyType(): string
@@ -173,12 +171,6 @@ abstract class AbstractRequest extends Data
         return $this->timeout ?: $this->getClientDTO()->getTimeout();
     }
 
-    public function setTimeout(int $timeout): self
-    {
-        $this->timeout = $timeout;
-
-        return $this;
-    }
 
     public function getUrl(): string
     {
@@ -198,6 +190,11 @@ abstract class AbstractRequest extends Data
     public function getClientDTO(): ClientDTO
     {
         return $this->clientDTO = $this->clientDTO ?: ClientResolver::resolve(static::class);
+    }
+
+    public function getResource(): AbstractResource
+    {
+        return $this->resource = $this->resource ?: ClientResolver::resolveResource(static::class);
     }
 
     public function fill(object|array $data, bool $filter = false): static
