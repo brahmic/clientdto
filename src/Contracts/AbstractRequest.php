@@ -9,6 +9,7 @@ use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
 use Brahmic\ClientDTO\Support\ClientResolver;
 use Brahmic\ClientDTO\Support\PropertyContext;
+use Brahmic\ClientDTO\Support\RequestHelper;
 use Brahmic\ClientDTO\Traits\QueryParams;
 use Brahmic\ClientDTO\Traits\Timeout;
 use Exception;
@@ -82,6 +83,54 @@ abstract class AbstractRequest extends Data
         throw new Exception('Неизвестный тип запроса');
     }
 
+    /**
+     * @throws \Exception
+     */
+    public static function getDtoClass(): string
+    {
+        if (static::DTO) {
+
+            return static::DTO;
+        }
+
+        throw new Exception('Неизвестный тип запроса');
+    }
+
+    public function resolveDtoClass(): string
+    {
+        return $this->getDtoClass();
+    }
+
+    public function getTimeout(): int
+    {
+        return $this->timeout ?: $this->getClientDTO()->getTimeout();
+    }
+
+    public function getUrl(): string
+    {
+        return $this->getClientDTO()->getBaseUrl($this->getUri());   //todo?
+    }
+
+    public static function getUri(): string
+    {
+        return static::URI;
+    }
+
+    public static function getName(): string
+    {
+        return static::NAME;
+    }
+
+    public function getClientDTO(): ClientDTO
+    {
+        return $this->clientDTO = $this->clientDTO ?: ClientResolver::resolve(static::class);
+    }
+
+    public function getResource(): AbstractResource
+    {
+        return $this->resource = $this->resource ?: ClientResolver::resolveResource(static::class);
+    }
+
 
     public function getQueryParamsAsString(): ?string
     {
@@ -109,172 +158,21 @@ abstract class AbstractRequest extends Data
 
     protected function queryParams(): array
     {
-        return $this->resolveRequestParams(PropertyContext::QueryString);
+        return RequestHelper::getInstance()->resolveRequestParams($this, PropertyContext::QueryString);
     }
 
     protected function bodyParams(): array
     {
-        return $this->resolveRequestParams(PropertyContext::Body);
-    }
-
-    private function resolveRequestParams(PropertyContext $context): array
-    {
-        $reflection = new \ReflectionClass(static::class);
-
-        foreach ($reflection->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
-            $attributes = $this->getAttributes($property);
-
-            $hideFromQueryStr = $attributes->contains(
-                fn(object $attribute) => $attribute instanceof HideFromQueryStr
-            );
-
-            $hideFromBody = $attributes->contains(
-                fn(object $attribute) => $attribute instanceof HideFromBody
-            );
-
-            if (($context === PropertyContext::Body && $hideFromBody) || ($context === PropertyContext::QueryString && $hideFromQueryStr)) {
-                $this->except($property->getName(), true);
-            }
-
-        }
-
-        return $this->transform();
-    }
-
-
-    /**
-     * @throws \Exception
-     */
-    public static function getDtoClass(): string
-    {
-        if (static::DTO) {
-
-            return static::DTO;
-        }
-
-        self::exception('Не указан DTO для запроса');
-    }
-
-    public function resolveDtoClass(): string
-    {
-        return $this->getDtoClass();
-    }
-
-    public function getTimeout(): int
-    {
-        return $this->timeout ?: $this->getClientDTO()->getTimeout();
-    }
-
-
-    public function getUrl(): string
-    {
-        return $this->getClientDTO()->getBaseUrl($this->getUri());   //todo?
-    }
-
-    public static function getUri(): string
-    {
-        return static::URI;
-    }
-
-    public static function getName(): string
-    {
-        return static::NAME;
-    }
-
-    public function getClientDTO(): ClientDTO
-    {
-        return $this->clientDTO = $this->clientDTO ?: ClientResolver::resolve(static::class);
-    }
-
-    public function getResource(): AbstractResource
-    {
-        return $this->resource = $this->resource ?: ClientResolver::resolveResource(static::class);
+        return RequestHelper::getInstance()->resolveRequestParams($this, PropertyContext::Body);
     }
 
     public function fill(object|array $data, bool $filter = false): static
     {
-        if ($data instanceof Arrayable) {
-            $data = $data->toArray();
-        }
-        if ($filter) {
-            $data = array_filter($data);
-        }
-
-        $properties = $this->getOwnProperties(ReflectionProperty::IS_PUBLIC);
-
-        $properties->each(function (ReflectionProperty $property) use (&$data) {
-            $propertyName = $property->getName();
-
-            if (array_key_exists($propertyName, $data)) {
-                $this->setPropertyValue($propertyName, $data[$propertyName], $property);
-            }
-        });
-
-        return $this;
-    }
-
-    /**
-     * @param string $message
-     * @return void
-     * @throws \Exception
-     */
-    private static function exception(string $message): void
-    {
-        throw new \Exception($message . ' ' . static::class);
+        return RequestHelper::getInstance()->fill($this, $data, $filter);
     }
 
     private function makeQueryString(array|Collection $queryParams, bool $hasQuestion = true): ?string
     {
-        if ($queryParams instanceof Collection) {
-            $queryParams = $queryParams->toArray();
-        }
-
-        $queryString = (!empty($queryParams) ? http_build_query($queryParams) : null);
-
-        return $queryString ? ($hasQuestion ? '?' : null) . $queryString : null;
+        return RequestHelper::getInstance()->makeQueryString($queryParams, $hasQuestion);
     }
-
-    private function setPropertyValue($propertyName, $value, ?ReflectionProperty $property = null): void
-    {
-        if ($property) {
-            if (is_null($value) && !$property->getType()->allowsNull()) {
-                self::exception("Свойство {$property->getName()} не может быть null.");
-            }
-        }
-
-        $this->{$propertyName} = $value;
-    }
-
-    /**
-     * @param int|null $filter
-     * @return Collection
-     */
-    private static function getOwnProperties(?int $filter = null): Collection
-    {
-        return self::getProperties(static::class, $filter);
-
-    }
-
-    private static function getProperties(string $class, ?int $filter = null): Collection
-    {
-        $class = new \ReflectionClass($class);
-
-        $result = Collection::make();
-
-        foreach ($class->getProperties($filter) as $reflectionProperty) {
-            if ($reflectionProperty->class === $class) {
-                $result->put($reflectionProperty->getName(), $reflectionProperty);
-            }
-        }
-
-        return $result;
-    }
-
-    private function getAttributes(ReflectionProperty $reflectionProperty): Collection
-    {
-        return collect($reflectionProperty->getAttributes())
-            ->filter(fn(\ReflectionAttribute $attribute) => class_exists($attribute->getName()))
-            ->map(fn(\ReflectionAttribute $attribute) => $attribute->newInstance());
-    }
-
 }
