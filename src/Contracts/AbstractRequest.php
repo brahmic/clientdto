@@ -9,7 +9,7 @@ use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
 use Brahmic\ClientDTO\Support\ClientResolver;
 use Brahmic\ClientDTO\Support\PropertyContext;
-use Brahmic\ClientDTO\Traits\CustomQueryParams;
+use Brahmic\ClientDTO\Traits\QueryParams;
 use Brahmic\ClientDTO\Traits\Timeout;
 use Exception;
 use GuzzleHttp\RequestOptions;
@@ -21,7 +21,7 @@ use Spatie\LaravelData\Data;
 
 abstract class AbstractRequest extends Data
 {
-    use CustomQueryParams, Timeout;
+    use QueryParams, Timeout;
 
     public const ?string URI = null;
 
@@ -37,8 +37,6 @@ abstract class AbstractRequest extends Data
     private ?ClientDTO $clientDTO = null;
 
     private ?AbstractResource $resource = null;
-
-
 
 
     public function getRequestBodyType(): string
@@ -61,13 +59,9 @@ abstract class AbstractRequest extends Data
 
         dump($this->isPost() ? 'POST' : 'GET');
         //$this->getQueryParams();
-        dump($this);
-        dump('=====[   getQueryParamsAsString');
         dump($this->getQueryParamsAsString());
-        dump('=====[   getQueryParams');
-        dump($this->getQueryParams());
-        dump('=====[   getBodyParams');
-        dump($this->getBodyParams());
+        dump($this->getFinalQueryParams());
+        dump($this->getFinalBodyParams());
 
         dd('send');
 
@@ -91,22 +85,22 @@ abstract class AbstractRequest extends Data
 
     public function getQueryParamsAsString(): ?string
     {
-        return $this->makeQueryString($this->getQueryParams());
+        return $this->makeQueryString($this->getFinalQueryParams());
     }
 
-    final public function getQueryParams(): array
+    final public function getFinalQueryParams(): array
     {
         return array_merge(
         // указанные в классе запроса если метод переопределён или на основе свойств класса
             $this->queryParams(),
             // параметры, которые могли быть добавлены динамически в классе запроса через другие методы
-            $this->getCustomQueryParams(),
+            $this->getQueryParams(),
             // параметры, которые были указаны в клиенте
-            $this->getClientDTO()->getCustomQueryParams()
+            $this->getClientDTO()->getQueryParams()
         );
     }
 
-    final public function getBodyParams(): array
+    final public function getFinalBodyParams(): array
     {
         return array_merge(
             $this->bodyParams(),

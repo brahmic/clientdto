@@ -13,13 +13,14 @@ class SomeDataClient extends ClientDTO
     // Системные запросы (получение uuid, прочее)
     public function __construct()
     {
+
         $this
-            ->setBaseUrl('https://example.com/services/')
+            ->setBaseUrl(env('CLIENTDTO_URL'))
             ->setTimeout(60)
             ->setHeaders([])
             ->setDebug(true)
             ->setRequestBodyType(RequestOptions::MULTIPART)
-            ->addQueryParam('token', '45fadabbd2113da853324e3b6c8b4927');
+            ->addQueryParam('token', env('CLIENTDTO_TOKEN'));
     }
 
 

@@ -24,19 +24,20 @@ class GetPersonUuid extends GetRequest
     //#[HideFromBody]
     #[Required]
     public array $regions;
-    public ?array $rasdasdasds = [];
 
     #[MapOutputName('PeopleQuery.LastName')]
-    #[Max(15), IP, StartsWith('192.')]
+    #[Required]
     public string $lastName;
 
     #[MapOutputName('PeopleQuery.FirstName')]
+    #[Required]
     public string $firstName;
 
     #[MapOutputName('PeopleQuery.SecondName')]
     public ?string $secondName = null;
 
     #[MapOutputName('PeopleQuery.BirthDate')]
+    // добавить каст из строки-в строку?
     public ?Carbon $birthDate = null;
 
     #[MapOutputName('PeopleQuery.PassportSeries')]
@@ -48,8 +49,6 @@ class GetPersonUuid extends GetRequest
     #[MapOutputName('PeopleQuery.INN')]
     public ?string $inn = null;
 
-    //protected array $required = ['address'];
-    //protected array $payload = [];
 
 
     public function set(?array $regions = null, ?string $lastName = null, ?string $firstName = null): self

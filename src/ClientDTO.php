@@ -3,13 +3,13 @@
 namespace Brahmic\ClientDTO;
 
 use Brahmic\ClientDTO\Support\ClientResolver;
-use Brahmic\ClientDTO\Traits\CustomQueryParams;
+use Brahmic\ClientDTO\Traits\QueryParams;
 use Brahmic\ClientDTO\Traits\Headers;
 use Brahmic\ClientDTO\Traits\Timeout;
 
 class ClientDTO
 {
-    use CustomQueryParams, Headers, Timeout;
+    use QueryParams, Headers, Timeout;
 
     private ?string $baseUrl = null;
 

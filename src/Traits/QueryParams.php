@@ -2,14 +2,14 @@
 
 namespace Brahmic\ClientDTO\Traits;
 
-trait CustomQueryParams
+trait QueryParams
 {
-    private array $customQueryParams = [];
+    private array $queryParams = [];
 
 
-    public function getCustomQueryParams(): array
+    public function getQueryParams(): array
     {
-        return $this->customQueryParams;
+        return $this->queryParams;
     }
 
     /**
@@ -21,7 +21,7 @@ trait CustomQueryParams
      */
     public function addQueryParam(string $key, string $value): static
     {
-        $this->customQueryParams[$key] = $value;
+        $this->queryParams[$key] = $value;
 
         return $this;
     }
@@ -35,12 +35,10 @@ trait CustomQueryParams
      */
     public function appendQueryParam(string $key, string $value): static
     {
-        // Если параметр уже существует, добавляем новое значение через запятую
-        if (isset($this->customQueryParams[$key])) {
-            $this->customQueryParams[$key] .= ',' . $value;
+        if (isset($this->queryParams[$key])) {
+            $this->queryParams[$key] .= ',' . $value;
         } else {
-            // Если параметра нет, создаем новый
-            $this->customQueryParams[$key] = $value;
+            $this->queryParams[$key] = $value;
         }
 
         return $this;
@@ -50,7 +48,7 @@ trait CustomQueryParams
     /**
      * Добавляет параметры, но обычно оставляет их как отдельные элементы (массив значений с одинаковым ключом).
      * Полезен в случаях, когда параметры должны накапливаться, а не заменять друг друга
-     * Пример: ?tags=php&tags=laravel&tags=web (множество значений с одинаковым ключом)
+     * Example: ?tags=php&tags=laravel&tags=web (множество значений с одинаковым ключом)
      *
      * @param string $key
      * @param string $value
@@ -58,12 +56,11 @@ trait CustomQueryParams
      */
     public function attachQueryParam(string $key, string $value): static
     {
-        if (!isset($this->customQueryParams[$key])) {
-            $this->customQueryParams[$key] = [];
+        if (!isset($this->queryParams[$key])) {
+            $this->queryParams[$key] = [];
         }
 
-        // Добавляем новое значение в массив (не перезаписываем)
-        $this->customQueryParams[$key][] = $value;
+        $this->queryParams[$key][] = $value;
 
         return $this;
     }
