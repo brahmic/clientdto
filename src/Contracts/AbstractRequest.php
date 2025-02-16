@@ -32,7 +32,6 @@ abstract class AbstractRequest extends Data
 
     //public const string REQUEST_OPTIONS = RequestOptions::JSON;
 
-
     private string $requestBodyType = RequestOptions::JSON;
 
     private ?ClientDTO $clientDTO = null;

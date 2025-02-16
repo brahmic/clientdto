@@ -7,6 +7,9 @@ use Brahmic\ClientDTO\Traits\QueryParams;
 use Brahmic\ClientDTO\Traits\Headers;
 use Brahmic\ClientDTO\Traits\Timeout;
 
+/**
+ *
+ */
 class ClientDTO
 {
     use QueryParams, Headers, Timeout;

@@ -6,6 +6,7 @@ use Brahmic\ClientDTO\Attributes\HideFromBody;
 use Brahmic\ClientDTO\Attributes\HideFromQueryStr;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Collection;
+use ReflectionClass;
 use ReflectionProperty;
 use Spatie\LaravelData\Data;
 
@@ -33,13 +34,14 @@ class RequestHelper
             $data = array_filter($data);
         }
 
-        $properties = $this->getClassProperties($target::class, ReflectionProperty::IS_PUBLIC);
+        $properties = self::getProperties($target::class, ReflectionProperty::IS_PUBLIC);
 
-        $properties->each(function (ReflectionProperty $property) use (&$data) {
+        $properties->each(function (ReflectionProperty $property) use (&$data, $target) {
             $propertyName = $property->getName();
 
             if (array_key_exists($propertyName, $data)) {
-                $this->setPropertyValue($this, $propertyName, $data[$propertyName], $property);
+
+                $this->setPropertyValue($target, $propertyName, $data[$propertyName], $property);
             }
         });
 
@@ -83,19 +85,13 @@ class RequestHelper
         $object->{$propertyName} = $value;
     }
 
-    private static function getClassProperties(string $class, ?int $filter = null): Collection
-    {
-        return self::getProperties($class, $filter);
-
-    }
-
     private static function getProperties(string $class, ?int $filter = null): Collection
     {
-        $class = new \ReflectionClass($class);
+        $reflectionClass = new ReflectionClass($class);
 
         $result = Collection::make();
 
-        foreach ($class->getProperties($filter) as $reflectionProperty) {
+        foreach ($reflectionClass->getProperties($filter) as $reflectionProperty) {
             if ($reflectionProperty->class === $class) {
                 $result->put($reflectionProperty->getName(), $reflectionProperty);
             }
