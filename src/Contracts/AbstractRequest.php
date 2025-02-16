@@ -32,16 +32,16 @@ abstract class AbstractRequest extends Data
     //public const string REQUEST_OPTIONS = RequestOptions::JSON;
 
 
-    private string $requestBodyType = RequestOptions::JSON;
+    private string $bodyFormat = RequestOptions::JSON;
 
     private ?ClientDTO $clientDTO = null;
 
     private ?AbstractResource $resource = null;
 
 
-    public function getRequestBodyType(): string
+    public function getBodyFormat(): string
     {
-        return $this->requestBodyType;
+        return $this->bodyFormat;
     }
 
     public function isGet(): bool
@@ -107,12 +107,12 @@ abstract class AbstractRequest extends Data
         );
     }
 
-    protected function queryParams(): array
+    public function queryParams(): array
     {
         return $this->resolveRequestParams(PropertyContext::QueryString);
     }
 
-    protected function bodyParams(): array
+    public function bodyParams(): array
     {
         return $this->resolveRequestParams(PropertyContext::Body);
     }

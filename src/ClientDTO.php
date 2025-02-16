@@ -19,6 +19,12 @@ class ClientDTO
 
     private ?string $requestBodyType = null;    //one of RequestOptions
 
+    private array $logs = [];
+
+    public function logs(): array
+    {
+        return $this->logs;
+    }
 
     /**
      * @param string $type

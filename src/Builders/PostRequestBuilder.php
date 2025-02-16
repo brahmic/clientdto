@@ -2,6 +2,7 @@
 
 namespace Brahmic\ClientDTO\Contracts;
 
+use Brahmic\ClientDTO\Requests\PostRequest;
 use GuzzleHttp\RequestOptions;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -9,6 +10,8 @@ use Illuminate\Support\Facades\Http;
 class PostRequestBuilder
 {
     protected string $url;
+
+    protected int $timeout;
 
     protected array $queryParams = [];
 
@@ -22,63 +25,33 @@ class PostRequestBuilder
 
     protected string $contentType = RequestOptions::JSON; // 'json', 'form', 'multipart'
 
-    public function __construct(string $url)
+    public function __construct(public PostRequest $postRequest)
     {
-        $this->url = $url;
+        $this->setQueryParams();
+        $this->setBodyParams();
+
+        $this->url = $this->postRequest->getUrl();
+        $this->contentType = $this->postRequest->getBodyFormat();
+        $this->timeout = $this->postRequest->getTimeout() ?: $this->postRequest->getClientDTO()->getTimeout();
     }
 
-    /**
-     * Добавить Query параметры (?key=value)
-     */
-    public function withQuery(array $queryParams): self
+    private function setBodyParams(): void
     {
-        $this->queryParams = array_merge($this->queryParams, $queryParams);
-
-        return $this;
+        $this->body = array_merge(
+            $this->postRequest->bodyParams(),
+        );
     }
 
-    /**
-     * Добавить заголовки
-     */
-    public function withHeaders(array $headers): self
+    private function setQueryParams(): void
     {
-        $this->headers = array_merge($this->headers, $headers);
-
-        return $this;
-    }
-
-    /**
-     * Добавить Cookie
-     */
-    public function withCookies(array $cookies): self
-    {
-        $this->cookies = array_merge($this->cookies, $cookies);
-
-        return $this;
-    }
-
-    /**
-     * Добавить данные в тело запроса (JSON, form-data, x-www-form-urlencoded)
-     */
-    public function withBody(array $body, string $type = RequestOptions::JSON): self
-    {
-        $this->body = array_merge($this->body, $body);
-        $this->contentType = $type;
-
-        return $this;
-    }
-
-    /**
-     * Добавить файлы (multipart/form-data)
-     */
-    public function withFiles(array $files): self
-    {
-        foreach ($files as $key => $file) {
-            $this->files[$key] = fopen($file, 'r'); // Открываем файлы для передачи
-        }
-        $this->contentType = RequestOptions::MULTIPART;
-
-        return $this;
+        $this->queryParams = array_merge(
+        // указанные в классе запроса если метод переопределён или на основе свойств класса
+            $this->postRequest->queryParams(),
+            // параметры, которые могли быть добавлены динамически в классе запроса через другие методы
+            $this->postRequest->getQueryParams(),
+            // параметры, которые были указаны в клиенте
+            $this->postRequest->getClientDTO()->getQueryParams()
+        );
     }
 
     /**
@@ -88,18 +61,20 @@ class PostRequestBuilder
     {
         $fullUrl = $this->url . (!empty($this->queryParams) ? '?' . http_build_query($this->queryParams) : '');
 
+
         $request = Http::withHeaders($this->headers);
+
+        $request->timeout($this->postRequest->getTimeout());
 
         if (!empty($this->cookies)) {
             $request = $request->withCookies($this->cookies, parse_url($this->url, PHP_URL_HOST));
         }
 
-        // Определяем способ передачи тела запроса
         return match ($this->contentType) {
             RequestOptions::JSON => $request->post($fullUrl, $this->body),
             RequestOptions::FORM_PARAMS => $request->asForm()->post($fullUrl, $this->body),
             RequestOptions::MULTIPART => $request->asMultipart()->post($fullUrl, array_merge($this->body, $this->files)),
-            default => throw new \InvalidArgumentException("Неподдерживаемый тип контента: $this->contentType"),
+            default => throw new \InvalidArgumentException("Unsupported content type: $this->contentType"),
         };
     }
 }
