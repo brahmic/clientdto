@@ -19,7 +19,7 @@ class SomeDataClient extends ClientDTO
             ->setTimeout(60)
             ->setHeaders([])
             ->setDebug(true)
-            ->setRequestBodyType(RequestOptions::MULTIPART)
+            ->setBodyFormat(RequestOptions::MULTIPART)
             ->addQueryParam('token', env('CLIENTDTO_TOKEN'));
     }
 

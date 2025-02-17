@@ -3,6 +3,7 @@
 namespace Brahmic\ClientDTO;
 
 use Brahmic\ClientDTO\Support\ClientResolver;
+use Brahmic\ClientDTO\Traits\BodyFormat;
 use Brahmic\ClientDTO\Traits\QueryParams;
 use Brahmic\ClientDTO\Traits\Headers;
 use Brahmic\ClientDTO\Traits\Timeout;
@@ -12,7 +13,7 @@ use Brahmic\ClientDTO\Traits\Timeout;
  */
 class ClientDTO
 {
-    use QueryParams, Headers, Timeout;
+    use QueryParams, Headers, Timeout, BodyFormat;
 
     private ?string $baseUrl = null;
 
@@ -20,23 +21,11 @@ class ClientDTO
     private bool $debug = false;
 
 
-    private ?string $requestBodyType = null;    //one of RequestOptions
+    private array $logs = [];
 
-
-    /**
-     * @param string $type
-     * @return $this
-     */
-    public function setRequestBodyType(string $type): static
+    public function logs(): array
     {
-        $this->requestBodyType = $type;
-
-        return $this;
-    }
-
-    public function getRequestBodyType(): ?string
-    {
-        return $this->requestBodyType;
+        return $this->logs;
     }
 
     public function setDebug(bool $debug): static

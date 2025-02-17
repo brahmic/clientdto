@@ -2,6 +2,9 @@
 
 namespace Brahmic\ClientDTO\Traits;
 
+use Brahmic\ClientDTO\Support\RequestHelper;
+use Illuminate\Support\Collection;
+
 trait QueryParams
 {
     private array $queryParams = [];
@@ -65,4 +68,8 @@ trait QueryParams
         return $this;
     }
 
+    public function getQueryParamsAsString($hasQuestion = true): ?string
+    {
+        return RequestHelper::getInstance()->makeQueryString($this->getQueryParams(), $hasQuestion);
+    }
 }
