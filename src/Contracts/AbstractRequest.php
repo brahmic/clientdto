@@ -34,7 +34,7 @@ abstract class AbstractRequest extends Data
 
     private ?AbstractResource $resource = null;
 
-
+    // todo попытки, если валидация ответа не прошла и клиент решил повторить запрос
 
     public function send()
     {
@@ -42,12 +42,13 @@ abstract class AbstractRequest extends Data
 
         dump('AbstractRequest send');
         dump($builder);
+        dump($builder->toArray());
         $response = $builder->send();
         dump('Response:');
 
-        dump($response->status());
-        dd($response->successful());
-        dd($response);
+
+
+        return $response;
     }
 
     /**
@@ -68,10 +69,14 @@ abstract class AbstractRequest extends Data
         return $this->getDtoClass();
     }
 
-
     public function getUrl(): string
     {
-        return $this->getClientDTO()->getBaseUrl($this->getUri());   //todo?
+        return $this->getBaseUrl($this->getUri());
+    }
+
+    public function getBaseUrl(?string $uri = ''): string
+    {
+        return $this->getClientDTO()->getBaseUrl($uri);
     }
 
     public static function getUri(): string
@@ -84,6 +89,10 @@ abstract class AbstractRequest extends Data
         return static::NAME;
     }
 
+    public function validator(): ClientDTO
+    {
+        return $this->getClientDTO()->validator();
+    }
     public function getClientDTO(): ClientDTO
     {
         return $this->clientDTO = $this->clientDTO ?: ClientResolver::resolve(static::class);

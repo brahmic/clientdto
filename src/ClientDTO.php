@@ -2,6 +2,7 @@
 
 namespace Brahmic\ClientDTO;
 
+use Brahmic\ClientDTO\Contracts\ClientDTOInterface;
 use Brahmic\ClientDTO\Support\ClientResolver;
 use Brahmic\ClientDTO\Traits\BodyFormat;
 use Brahmic\ClientDTO\Traits\QueryParams;
@@ -11,7 +12,7 @@ use Brahmic\ClientDTO\Traits\Timeout;
 /**
  *
  */
-class ClientDTO
+class ClientDTO implements ClientDTOInterface
 {
     use QueryParams, Headers, Timeout, BodyFormat;
 
@@ -59,5 +60,9 @@ class ClientDTO
         return $this;
     }
 
+    /*
+     * Ответ получен.
+     *
+     */
 
 }

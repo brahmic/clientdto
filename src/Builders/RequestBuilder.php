@@ -5,14 +5,16 @@ namespace Brahmic\ClientDTO\Builders;
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
+use Brahmic\ClientDTO\Response\ResponseHandler;
 use Brahmic\ClientDTO\Support\RequestHelper;
 use Exception;
 use GuzzleHttp\Promise\PromiseInterface;
 use GuzzleHttp\RequestOptions;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
-class RequestBuilder
+class RequestBuilder implements Arrayable
 {
     private string $url;
 
@@ -30,7 +32,11 @@ class RequestBuilder
 
     private string $bodyFormat; // 'json', 'form', 'multipart'
 
-    private string $fullUrl;
+    private string $fullUrl {
+        get {
+            return $this->fullUrl;
+        }
+    }
 
     private array $types = [
         GetRequest::class => 'get',
@@ -49,16 +55,22 @@ class RequestBuilder
         $this->timeout = $this->clientRequest->getTimeout() ?: $this->clientRequest->getClientDTO()->getTimeout();
     }
 
+
     /**
      * Выполнить POST-запрос
      */
     public function send(): Response
     {
-        return match ($this->getMethod($this->clientRequest)) {
+        $response =  match ($this->getMethod($this->clientRequest)) {
             'get' => $this->get(),
             'post' => $this->post(),
             default => throw new \InvalidArgumentException("Unsupported request type."),
         };
+
+
+        return new ResponseHandler($this)
+            ->setValidator($this->clientRequest->validator())
+            ->handle($response);
     }
 
     private function get(): PromiseInterface|Response
@@ -115,5 +127,20 @@ class RequestBuilder
     private function getMethod(AbstractRequest $abstractRequest): string
     {
         return $this->types[get_parent_class($abstractRequest)];
+    }
+
+    public function toArray(): array
+    {
+        return [
+            'url' => $this->url,
+            'timeout' => $this->timeout,
+            'queryParams' => $this->queryParams,
+            'headers' => $this->headers,
+            'cookies' => $this->cookies,
+            'body' => $this->body,
+            'files' => $this->files,
+            'bodyFormat' => $this->bodyFormat,
+            'fullUrl' => $this->fullUrl,
+        ];
     }
 }
