@@ -2,7 +2,13 @@
 
 namespace Brahmic\ClientDTO\Response;
 
-class ClientResponse
+use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
+
+class ClientResponse implements ClientResponseInterface
 {
 
+    public function isAttemptNeeded(mixed $data): bool
+    {
+        return true;
+    }
 }

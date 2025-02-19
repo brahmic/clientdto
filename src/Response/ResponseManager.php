@@ -6,9 +6,10 @@ use Brahmic\ClientDTO\Builders\CollectedRequest;
 use Brahmic\ClientDTO\ClientDTO;
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientDTOInterface;
+use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
 use Illuminate\Http\Client\Response;
 
-class ResponseHandler
+class ResponseManager
 {
     const array MIME_TYPES = [
         'image/jpeg',
@@ -36,24 +37,22 @@ class ResponseHandler
         return $this->abstractRequest->getClientDTO();
     }
 
-    public function handle(Response $response)
+    public function make(Response $response): ClientResponseInterface
     {
         if ($response->successful()) {
             //2xx
 
             if ($this->hasFile($response)) {
                 // вернуть файл типа FILE
-                return null;
+                //
             }
 
             if ($json = $this->tryToGetJson($response)) {
 
+                //preemptive creation DTO
                 if ($responseDTO = $this->getClientDTO()->advanceCreationDTO($json)) {
-                    //
+                    dump($responseDTO);
                 }
-
-                dd(3452345);
-
             }
 
 
@@ -77,7 +76,7 @@ class ResponseHandler
 
         //Если ошибка техническая, возвращаем типовой ответ
         //Если ошибка от валидатора клиента — возвращаем её
-        return $response;
+        return new ClientResponse(); //todo конкретную реализацию брать у клиента getClientResponseClass
     }
 
 

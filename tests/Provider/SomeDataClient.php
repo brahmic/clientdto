@@ -3,6 +3,7 @@
 namespace Brahmic\ClientDTO\Test\Provider;
 
 use Brahmic\ClientDTO\ClientDTO;
+use Spatie\LaravelData\Data;
 use Brahmic\ClientDTO\Test\Provider\Resources\Organization\Organization;
 use Brahmic\ClientDTO\Test\Provider\Resources\Person\Person;
 use GuzzleHttp\RequestOptions;
@@ -31,5 +32,15 @@ class SomeDataClient extends ClientDTO
     public function organization(): Organization
     {
         return new Organization($this);
+    }
+
+    public function advanceCreationDTO(array $data): ?Data
+    {
+        return ResponseDTO::from($data);
+    }
+
+    public function isAttemptNeeded(array $responseDTO): bool
+    {
+        return $responseDTO['status'] === -100;
     }
 }

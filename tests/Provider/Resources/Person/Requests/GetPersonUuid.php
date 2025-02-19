@@ -20,6 +20,8 @@ class GetPersonUuid extends GetRequest
 
     public const string URI = 'org-check.json';
 
+    //public const int ATTEMPTS = 3;
+
 
     //#[HideFromBody]
     #[Required]

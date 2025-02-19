@@ -6,7 +6,7 @@ use Brahmic\ClientDTO\Builders\CollectedRequest;
 use Brahmic\ClientDTO\ClientDTO;
 use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
-use Brahmic\ClientDTO\Response\ResponseHandler;
+use Brahmic\ClientDTO\Response\ResponseManager;
 use Brahmic\ClientDTO\Support\ClientResolver;
 use Brahmic\ClientDTO\Support\PropertyContext;
 use Brahmic\ClientDTO\Support\RequestHelper;
@@ -41,25 +41,25 @@ abstract class AbstractRequest extends Data
 
     // todo попытки, если валидация ответа не прошла и клиент решил повторить запрос
 
-    public function send(): ResponseInterface
+    public function send(): ClientResponseInterface
     {
-        $builder = new CollectedRequest($this);
+        $collectedRequest = new CollectedRequest($this);
 
         dump('AbstractRequest send');
 
-        $response = $builder->send();
+        $response = $collectedRequest->send();
 
-//        $handled = new ResponseHandler($this)
-//            ->handle($response);
+        $clientResponse = new ResponseManager($this)->make($response);
 
+        //$clientResponse->isAttemptNeeded()
 
         //$this->getClientDTO()->isAttemptNeeded($responseDTO, $this);
 
-        while ($builder->canAttempt() /* && isAttemptNeeded у клиента/реквеста */) {
-            if ($builder->remainingOfAttempts()) {
+        while ($collectedRequest->canAttempt() /* todo && isAttemptNeeded у клиента/реквеста */) {
+            if ($collectedRequest->remainingOfAttempts()) {
                 usleep($this->getAttemptDelay() * 1000);
             }
-            $response = $builder->send();
+            $response = $collectedRequest->send();
         }
 
         //$this->getClientDTO()->isAttemptNeeded();

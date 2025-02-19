@@ -3,10 +3,9 @@
 namespace Brahmic\ClientDTO\Builders;
 
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
-use Brahmic\ClientDTO\Contracts\ResponseInterface;
 use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
-use Brahmic\ClientDTO\Response\ResponseHandler;
+use Brahmic\ClientDTO\Response\ResponseManager;
 use Brahmic\ClientDTO\Support\RequestHelper;
 use Exception;
 use GuzzleHttp\Promise\PromiseInterface;

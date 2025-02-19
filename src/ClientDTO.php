@@ -62,7 +62,6 @@ class ClientDTO implements ClientDTOInterface
         return $this;
     }
 
-
     public function advanceCreationDTO(array $data): ?Data
     {
         return null;
