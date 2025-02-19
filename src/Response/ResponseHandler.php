@@ -2,6 +2,10 @@
 
 namespace Brahmic\ClientDTO\Response;
 
+use Brahmic\ClientDTO\Builders\CollectedRequest;
+use Brahmic\ClientDTO\ClientDTO;
+use Brahmic\ClientDTO\Contracts\AbstractRequest;
+use Brahmic\ClientDTO\Contracts\ClientDTOInterface;
 use Illuminate\Http\Client\Response;
 
 class ResponseHandler
@@ -22,18 +26,38 @@ class ResponseHandler
         'application/pgp-signature',
     ];
 
+    public function __construct(private readonly AbstractRequest $abstractRequest)
+    {
+
+    }
+
+    private function getClientDTO(): ClientDTOInterface
+    {
+        return $this->abstractRequest->getClientDTO();
+    }
+
     public function handle(Response $response)
     {
         if ($response->successful()) {
             //2xx
 
             if ($this->hasFile($response)) {
-                // вернуть файл
-            } else {
+                // вернуть файл типа FILE
+                return null;
+            }
+
+            if ($json = $this->tryToGetJson($response)) {
+
+                if ($responseDTO = $this->getClientDTO()->advanceCreationDTO($json)) {
+                    //
+                }
+
+                dd(3452345);
 
             }
 
-            $data = $response->json();
+
+            //if (advanceCreationDTO)
 
 
         } elseif ($response->clientError()) {
@@ -54,6 +78,26 @@ class ResponseHandler
         //Если ошибка техническая, возвращаем типовой ответ
         //Если ошибка от валидатора клиента — возвращаем её
         return $response;
+    }
+
+
+    private function tryToGetJson(Response $response): mixed
+    {
+        if ($this->isJson($response)) {
+            return $response->json();
+        }
+
+        if (str_contains($response->header('Content-Type'), 'text/html') && $json = $response->json()) {
+            return $json;
+        }
+
+        return null;
+    }
+
+
+    private function isJson(Response $response): bool
+    {
+        return str_contains($response->header('Content-Type'), 'application/json');
     }
 
     private function hasFile(Response $response): bool

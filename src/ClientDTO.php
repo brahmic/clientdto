@@ -8,6 +8,8 @@ use Brahmic\ClientDTO\Traits\BodyFormat;
 use Brahmic\ClientDTO\Traits\QueryParams;
 use Brahmic\ClientDTO\Traits\Headers;
 use Brahmic\ClientDTO\Traits\Timeout;
+use Illuminate\Http\Client\Response;
+use Spatie\LaravelData\Data;
 
 /**
  *
@@ -60,9 +62,9 @@ class ClientDTO implements ClientDTOInterface
         return $this;
     }
 
-    /*
-     * Ответ получен.
-     *
-     */
 
+    public function advanceCreationDTO(array $data): ?Data
+    {
+        return null;
+    }
 }

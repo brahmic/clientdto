@@ -2,10 +2,11 @@
 
 namespace Brahmic\ClientDTO\Contracts;
 
-use Brahmic\ClientDTO\Builders\RequestBuilder;
+use Brahmic\ClientDTO\Builders\CollectedRequest;
 use Brahmic\ClientDTO\ClientDTO;
 use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
+use Brahmic\ClientDTO\Response\ResponseHandler;
 use Brahmic\ClientDTO\Support\ClientResolver;
 use Brahmic\ClientDTO\Support\PropertyContext;
 use Brahmic\ClientDTO\Support\RequestHelper;
@@ -22,6 +23,10 @@ abstract class AbstractRequest extends Data
 {
     use QueryParams, Timeout, BodyFormat;
 
+    public const int ATTEMPTS = 1;
+
+    public const int ATTEMPT_DELAY = 2000;
+
     public const ?string URI = null;
 
     public const ?string DTO = null;
@@ -36,16 +41,32 @@ abstract class AbstractRequest extends Data
 
     // todo попытки, если валидация ответа не прошла и клиент решил повторить запрос
 
-    public function send()
+    public function send(): ResponseInterface
     {
-        $builder = new RequestBuilder($this);
+        $builder = new CollectedRequest($this);
 
         dump('AbstractRequest send');
-        dump($builder);
-        dump($builder->toArray());
-        $response = $builder->send();
-        dump('Response:');
 
+        $response = $builder->send();
+
+//        $handled = new ResponseHandler($this)
+//            ->handle($response);
+
+
+        //$this->getClientDTO()->isAttemptNeeded($responseDTO, $this);
+
+        while ($builder->canAttempt() /* && isAttemptNeeded у клиента/реквеста */) {
+            if ($builder->remainingOfAttempts()) {
+                usleep($this->getAttemptDelay() * 1000);
+            }
+            $response = $builder->send();
+        }
+
+        //$this->getClientDTO()->isAttemptNeeded();
+        dump('Response:');
+        dump($response->status());
+        dump($response->successful());
+        dd($response->body());
 
 
         return $response;
@@ -67,6 +88,16 @@ abstract class AbstractRequest extends Data
     public function resolveDtoClass(): string
     {
         return $this->getDtoClass();
+    }
+
+    public function getAttempts(): int
+    {
+        return static::ATTEMPTS;
+    }
+
+    public function getAttemptDelay(): int
+    {
+        return static::ATTEMPT_DELAY;
     }
 
     public function getUrl(): string
@@ -93,6 +124,7 @@ abstract class AbstractRequest extends Data
     {
         return $this->getClientDTO()->validator();
     }
+
     public function getClientDTO(): ClientDTO
     {
         return $this->clientDTO = $this->clientDTO ?: ClientResolver::resolve(static::class);

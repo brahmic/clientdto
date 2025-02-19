@@ -3,6 +3,7 @@
 namespace Brahmic\ClientDTO\Builders;
 
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
+use Brahmic\ClientDTO\Contracts\ResponseInterface;
 use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
 use Brahmic\ClientDTO\Response\ResponseHandler;
@@ -14,8 +15,10 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
-class RequestBuilder implements Arrayable
+class CollectedRequest implements Arrayable
 {
+    private int $attempts;
+
     private string $url;
 
     private int $timeout;
@@ -43,11 +46,16 @@ class RequestBuilder implements Arrayable
         PostRequest::class => 'post',
     ];
 
-    public function __construct(public AbstractRequest $clientRequest)
+    private int $remainingOfAttempts;
+
+    public function __construct(readonly private AbstractRequest $clientRequest)
     {
         $this->setQueryParams();
         $this->setBodyParams();
 
+
+        $this->attempts = $this->clientRequest->getAttempts();
+        $this->remainingOfAttempts = $this->attempts;
         $this->url = $this->clientRequest->getUrl();
         $this->fullUrl = $this->getUrlWithQueryParams();
         $this->headers = $this->clientRequest->getClientDTO()->getHeaders();
@@ -56,21 +64,54 @@ class RequestBuilder implements Arrayable
     }
 
 
-    /**
-     * Выполнить POST-запрос
-     */
-    public function send(): Response
+    public function getAttempts(): int
     {
-        $response =  match ($this->getMethod($this->clientRequest)) {
+        return $this->attempts;
+    }
+
+    public function canAttempt(): bool
+    {
+        return $this->remainingOfAttempts > 0;
+    }
+
+    public function attempt(): int
+    {
+        return ($this->attempts - $this->remainingOfAttempts) + 1;
+    }
+
+    public function remainingOfAttempts(): int
+    {
+        return $this->remainingOfAttempts;
+    }
+
+    /**
+     * Выполнить запрос
+     * @throws \Throwable
+     */
+    public function send(bool $reset = false): PromiseInterface|Response//: ResponseInterface
+    {
+
+        if ($reset) {
+            $this->remainingOfAttempts = $this->attempts;
+        }
+
+        throw_if($this->remainingOfAttempts < 0, new Exception("Unforeseen call. Attempts out of range"));
+
+        dump('Builder send, attempt:' . $this->attempt());
+
+        $this->remainingOfAttempts -= 1;
+
+        return match ($this->getMethod($this->clientRequest)) {
             'get' => $this->get(),
             'post' => $this->post(),
             default => throw new \InvalidArgumentException("Unsupported request type."),
         };
+    }
 
 
-        return new ResponseHandler($this)
-            ->setValidator($this->clientRequest->validator())
-            ->handle($response);
+    public function getRequest(): AbstractRequest
+    {
+        return $this->clientRequest;
     }
 
     private function get(): PromiseInterface|Response
