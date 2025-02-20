@@ -34,9 +34,9 @@ class SomeDataClient extends ClientDTO
         return new Organization($this);
     }
 
-    public function advanceCreationDTO(array $data): ?Data
+    public function advanceCreationDTO(array $responseData): ?Data
     {
-        return ResponseDTO::from($data);
+        return ResponseDTO::from($responseData);
     }
 
     public function isAttemptNeeded(array $responseDTO): bool

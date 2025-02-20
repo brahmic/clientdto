@@ -3,8 +3,10 @@
 namespace Brahmic\ClientDTO\Builders;
 
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
+use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
 use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
+use Brahmic\ClientDTO\Response\ClientResponse;
 use Brahmic\ClientDTO\Response\ResponseManager;
 use Brahmic\ClientDTO\Support\RequestHelper;
 use Exception;
@@ -87,7 +89,7 @@ class CollectedRequest implements Arrayable
      * Выполнить запрос
      * @throws \Throwable
      */
-    public function send(bool $reset = false): PromiseInterface|Response//: ResponseInterface
+    public function send(bool $reset = false): ClientResponseInterface //romiseInterface|Response//: ResponseInterface
     {
 
         if ($reset) {
@@ -100,11 +102,13 @@ class CollectedRequest implements Arrayable
 
         $this->remainingOfAttempts -= 1;
 
-        return match ($this->getMethod($this->clientRequest)) {
+        $response = match ($this->getMethod($this->clientRequest)) {
             'get' => $this->get(),
             'post' => $this->post(),
             default => throw new \InvalidArgumentException("Unsupported request type."),
         };
+
+        return new ResponseManager($this->clientRequest);//->make($response);
     }
 
 

@@ -14,12 +14,10 @@ use Brahmic\ClientDTO\Traits\BodyFormat;
 use Brahmic\ClientDTO\Traits\QueryParams;
 use Brahmic\ClientDTO\Traits\Timeout;
 use Exception;
-use GuzzleHttp\RequestOptions;
-use Illuminate\Support\Collection;
 use Spatie\LaravelData\Data;
 
 
-abstract class AbstractRequest extends Data
+abstract class AbstractRequest extends Data implements ClientRequestInterface
 {
     use QueryParams, Timeout, BodyFormat;
 
@@ -47,30 +45,47 @@ abstract class AbstractRequest extends Data
 
         dump('AbstractRequest send');
 
-        $response = $collectedRequest->send();
+        $clientResponse = $collectedRequest->send();
 
-        $clientResponse = new ResponseManager($this)->make($response);
-
-        //$clientResponse->isAttemptNeeded()
-
-        //$this->getClientDTO()->isAttemptNeeded($responseDTO, $this);
-
-        while ($collectedRequest->canAttempt() /* todo && isAttemptNeeded у клиента/реквеста */) {
+        while ($collectedRequest->canAttempt() && $clientResponse->isAttemptNeeded()) {
             if ($collectedRequest->remainingOfAttempts()) {
                 usleep($this->getAttemptDelay() * 1000);
             }
-            $response = $collectedRequest->send();
+            $clientResponse = $collectedRequest->send();
         }
+
 
         //$this->getClientDTO()->isAttemptNeeded();
         dump('Response:');
-        dump($response->status());
-        dump($response->successful());
-        dd($response->body());
+        dump($clientResponse->response->status());
+        dump($clientResponse->response->successful());
+        dd($clientResponse->response->body());
 
 
         return $response;
     }
+
+
+    /**
+     * Определяет нужна ли дополнительная попытка
+     * Default behavior
+     * @return bool
+     */
+    public function conditionOfAttempt(): bool
+    {
+        return false;
+    }
+
+    /**
+     * Определяет условие, при котором задача по получению данных выполнена.
+     * Вызывается только для запросов 2xx.
+     * @return bool
+     */
+    public function conditionIfResolved(): bool
+    {
+        return false;
+    }
+
 
     /**
      * @throws \Exception

@@ -2,7 +2,9 @@
 
 namespace Brahmic\ClientDTO;
 
+use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientDTOInterface;
+use Brahmic\ClientDTO\Contracts\ClientRequestInterface;
 use Brahmic\ClientDTO\Support\ClientResolver;
 use Brahmic\ClientDTO\Traits\BodyFormat;
 use Brahmic\ClientDTO\Traits\QueryParams;
@@ -62,7 +64,7 @@ class ClientDTO implements ClientDTOInterface
         return $this;
     }
 
-    public function advanceCreationDTO(array $data): ?Data
+    public function advanceCreationDTO(array $responseData, ClientRequestInterface $request): ?Data
     {
         return null;
     }

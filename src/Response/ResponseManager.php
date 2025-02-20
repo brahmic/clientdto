@@ -6,58 +6,52 @@ use Brahmic\ClientDTO\Builders\CollectedRequest;
 use Brahmic\ClientDTO\ClientDTO;
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientDTOInterface;
+use Brahmic\ClientDTO\Contracts\ClientRequestInterface;
 use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
+use Brahmic\ClientDTO\Support\MimeTypes;
 use Illuminate\Http\Client\Response;
+use Spatie\LaravelData\Data;
 
-class ResponseManager
+class ResponseManager implements ClientResponseInterface
 {
-    const array MIME_TYPES = [
-        'image/jpeg',
-        'image/png',
-        'text/plain',
-        'text/csv',
-        'application/pdf',
-        'application/zip',
-        'application/msword',
-        'application/vnd.ms-excel',
-        'application/x-x509-ca-cert',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/octet-stream',
-        'application/pgp-signature',
-    ];
+    private array $logs = [];
 
-    public function __construct(private readonly AbstractRequest $abstractRequest)
+
+    public function __construct(private readonly ClientRequestInterface $clientRequest)
     {
 
     }
 
     private function getClientDTO(): ClientDTOInterface
     {
-        return $this->abstractRequest->getClientDTO();
+        return $this->clientRequest->getClientDTO();
     }
 
     public function make(Response $response): ClientResponseInterface
     {
         if ($response->successful()) {
+            $this->addLog('Запрос успешен, код: ' . $response->status());
             //2xx
 
             if ($this->hasFile($response)) {
+                $this->addLog('Получен файл');
+
                 // вернуть файл типа FILE
                 //
             }
 
             if ($json = $this->tryToGetJson($response)) {
+                $this->addLog('Получен JSON');
 
-                //preemptive creation DTO
-                if ($responseDTO = $this->getClientDTO()->advanceCreationDTO($json)) {
+                if ($responseDTO = $this->getAdvanceCreationDTO($json, $this->clientRequest)) {
                     dump($responseDTO);
                 }
             }
 
-
+            dump($this->logs);
             //if (advanceCreationDTO)
-
+            //todo конкретную реализацию брать у клиента getClientResponseClass
+            return new ClientResponse($response);
 
         } elseif ($response->clientError()) {
             //4xx
@@ -76,9 +70,24 @@ class ResponseManager
 
         //Если ошибка техническая, возвращаем типовой ответ
         //Если ошибка от валидатора клиента — возвращаем её
+
         return new ClientResponse(); //todo конкретную реализацию брать у клиента getClientResponseClass
     }
 
+    //exp
+    public function isAttemptNeeded(): bool
+    {
+        return false;
+    }
+
+    private function getAdvanceCreationDTO(array $data, ClientRequestInterface $request): ?Data
+    {
+        if ($dto = $this->getClientDTO()->advanceCreationDTO($data, $this->clientRequest)) {
+            $this->addLog(sprintf("Создан общий первичный объект %s через метод advanceCreationDTO", class_basename($dto)));
+            return $dto;
+        }
+        return null;
+    }
 
     private function tryToGetJson(Response $response): mixed
     {
@@ -104,7 +113,7 @@ class ResponseManager
         $hasContentType = null;
 
         if ($contentType = $response->header('Content-Type')) {
-            $hasContentType = array_find(self::MIME_TYPES, function ($type) use ($contentType) {
+            $hasContentType = array_find(MimeTypes::MAP, function ($type) use ($contentType) {
                 return $type === $contentType;
             });
         };
@@ -113,4 +122,11 @@ class ResponseManager
 
         return $hasContentType || $hasContentDisposition;
     }
+
+    private function addLog(string $message): void
+    {
+        $this->logs[] = $message;
+    }
+
+
 }
