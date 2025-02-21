@@ -16,7 +16,7 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
-class CollectedRequest implements Arrayable
+class ExecutiveRequest implements Arrayable
 {
     private int $attempts;
 
@@ -36,11 +36,7 @@ class CollectedRequest implements Arrayable
 
     private string $bodyFormat; // 'json', 'form', 'multipart'
 
-    private string $fullUrl {
-        get {
-            return $this->fullUrl;
-        }
-    }
+    private string $fullUrl;
 
     private array $types = [
         GetRequest::class => 'get',
@@ -53,7 +49,7 @@ class CollectedRequest implements Arrayable
     {
         $this->setQueryParams();
         $this->setBodyParams();
-
+        $this->setChain();
 
         $this->attempts = $this->clientRequest->getAttempts();
         $this->remainingOfAttempts = $this->attempts;
@@ -62,28 +58,10 @@ class CollectedRequest implements Arrayable
         $this->headers = $this->clientRequest->getClientDTO()->getHeaders();
         $this->bodyFormat = $this->clientRequest->getBodyFormat() ?: $this->clientRequest->getClientDTO()->getBodyFormat() ?: RequestOptions::JSON;;
         $this->timeout = $this->clientRequest->getTimeout() ?: $this->clientRequest->getClientDTO()->getTimeout();
-    }
 
 
-    public function getAttempts(): int
-    {
-        return $this->attempts;
     }
 
-    public function canAttempt(): bool
-    {
-        return $this->remainingOfAttempts > 0;
-    }
-
-    public function attempt(): int
-    {
-        return ($this->attempts - $this->remainingOfAttempts) + 1;
-    }
-
-    public function remainingOfAttempts(): int
-    {
-        return $this->remainingOfAttempts;
-    }
 
     /**
      * Выполнить запрос
@@ -108,11 +86,67 @@ class CollectedRequest implements Arrayable
             default => throw new \InvalidArgumentException("Unsupported request type."),
         };
 
-        return new ResponseManager($this->clientRequest);//->make($response);
+        return new ResponseManager($this, $response);//->make($response);
+    }
+
+    private function getChain(): array
+    {
+        return array_filter([
+            $this->clientRequest,
+            $this->getClientRequest()->getResource(),
+            $this->getClientRequest()->getClientDTO(),
+        ]);
+    }
+
+    private function runOnChain(string $method, ...$args): void
+    {
+        array_walk($this->getChain, function (&$chain) use ($method, $args) {
+            if (method_exists($this->getClientRequest()->getResource(), 'isAttemptNeeded')) {
+                call_user_func_array([$chain, $method], ...$args);
+                return $this->getClientRequest()->getResource()->isAttemptNeeded(...$args);
+            }
+
+        });
+    }
+
+    public function isAttemptNeeded(mixed ...$args): bool
+    {
+
+        if (method_exists($this->clientRequest, 'isAttemptNeeded')) {
+            return $this->clientRequest->isAttemptNeeded(...$args);
+        }
+        if (method_exists($this->getClientRequest()->getResource(), 'isAttemptNeeded')) {
+            return $this->getClientRequest()->getResource()->isAttemptNeeded(...$args);
+        }
+        if (method_exists($this->getClientRequest()->getClientDTO(), 'isAttemptNeeded')) {
+            return $this->getClientRequest()->getClientDTO()->isAttemptNeeded(...$args);
+        }
+
+        return false;
+    }
+
+    public function getAttempts(): int
+    {
+        return $this->attempts;
+    }
+
+    public function canAttempt(): bool
+    {
+        return $this->remainingOfAttempts > 0;
+    }
+
+    public function attempt(): int
+    {
+        return ($this->attempts - $this->remainingOfAttempts) + 1;
+    }
+
+    public function remainingOfAttempts(): int
+    {
+        return $this->remainingOfAttempts;
     }
 
 
-    public function getRequest(): AbstractRequest
+    public function getClientRequest(): AbstractRequest
     {
         return $this->clientRequest;
     }

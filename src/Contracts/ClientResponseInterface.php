@@ -7,5 +7,5 @@ use Spatie\LaravelData\Data;
 interface ClientResponseInterface
 {
 
-    public function isAttemptNeeded(): bool;
+    //public function isAttemptNeeded(): bool;
 }

@@ -2,7 +2,7 @@
 
 namespace Brahmic\ClientDTO\Contracts;
 
-use Brahmic\ClientDTO\Builders\CollectedRequest;
+use Brahmic\ClientDTO\Builders\ExecutiveRequest;
 use Brahmic\ClientDTO\ClientDTO;
 use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
@@ -41,7 +41,7 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
 
     public function send(): ClientResponseInterface
     {
-        $collectedRequest = new CollectedRequest($this);
+        $collectedRequest = new ExecutiveRequest($this);
 
         dump('AbstractRequest send');
 
@@ -59,10 +59,9 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
         dump('Response:');
         dump($clientResponse->response->status());
         dump($clientResponse->response->successful());
-        dd($clientResponse->response->body());
+        dump($clientResponse->response->body());
 
-
-        return $response;
+        return $clientResponse;
     }
 
 

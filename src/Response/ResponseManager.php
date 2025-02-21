@@ -2,31 +2,27 @@
 
 namespace Brahmic\ClientDTO\Response;
 
-use Brahmic\ClientDTO\Builders\CollectedRequest;
+use Bezopasno\IrbisClient\DTO\ResponseDTO;
+use Brahmic\ClientDTO\Builders\ExecutiveRequest;
 use Brahmic\ClientDTO\ClientDTO;
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientDTOInterface;
 use Brahmic\ClientDTO\Contracts\ClientRequestInterface;
 use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
 use Brahmic\ClientDTO\Support\MimeTypes;
+use Closure;
 use Illuminate\Http\Client\Response;
 use Spatie\LaravelData\Data;
 
 class ResponseManager implements ClientResponseInterface
 {
     private array $logs = [];
+    private ?Data $primaryDTO;
 
-
-    public function __construct(private readonly ClientRequestInterface $clientRequest)
+    public function __construct(private readonly ExecutiveRequest $collectedRequest, public Response $response)
     {
 
     }
-
-    private function getClientDTO(): ClientDTOInterface
-    {
-        return $this->clientRequest->getClientDTO();
-    }
-
     public function make(Response $response): ClientResponseInterface
     {
         if ($response->successful()) {
@@ -43,9 +39,10 @@ class ResponseManager implements ClientResponseInterface
             if ($json = $this->tryToGetJson($response)) {
                 $this->addLog('Получен JSON');
 
-                if ($responseDTO = $this->getAdvanceCreationDTO($json, $this->clientRequest)) {
-                    dump($responseDTO);
+                if ($this->primaryDTO = $this->getAdvanceCreationDTO($json, $this->getClientRequest())) {
+                    dump($this->primaryDTO);
                 }
+
             }
 
             dump($this->logs);
@@ -74,15 +71,27 @@ class ResponseManager implements ClientResponseInterface
         return new ClientResponse(); //todo конкретную реализацию брать у клиента getClientResponseClass
     }
 
+
+    private function getClientRequest(): ClientRequestInterface
+    {
+        return $this->collectedRequest->getClientRequest();
+    }
+
+    private function getClientDTO(): ClientDTOInterface
+    {
+        return $this->getClientRequest()->getClientDTO();
+    }
+
     //exp
     public function isAttemptNeeded(): bool
     {
-        return false;
+        $args = ResponseDTO::from([]);
+        return $this->collectedRequest->isAttemptNeeded($args, $this);
     }
 
-    private function getAdvanceCreationDTO(array $data, ClientRequestInterface $request): ?Data
+    private function getAdvanceCreationDTO(array $data, ClientRequestInterface $clientRequest): ?Data
     {
-        if ($dto = $this->getClientDTO()->advanceCreationDTO($data, $this->clientRequest)) {
+        if ($dto = $this->getClientDTO()->advanceCreationDTO($data, $clientRequest)) {
             $this->addLog(sprintf("Создан общий первичный объект %s через метод advanceCreationDTO", class_basename($dto)));
             return $dto;
         }
