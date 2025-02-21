@@ -10,6 +10,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use InvalidArgumentException;
 use ReflectionClass;
+use ReflectionNamedType;
 
 class ClientResolver
 {
@@ -158,8 +159,11 @@ class ClientResolver
 
         foreach ($methods as $method) {
             $returnType = $method->getReturnType();
-            if ($returnType) {
+
+            if ($returnType instanceof ReflectionNamedType) {
+
                 $returnTypeName = $returnType->getName();
+
                 // Проверяем, является ли возвращаемый тип подклассом $parentClassName
                 if (is_subclass_of($returnTypeName, $targetClass)) {
 
