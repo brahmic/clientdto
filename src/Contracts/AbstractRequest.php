@@ -4,6 +4,7 @@ namespace Brahmic\ClientDTO\Contracts;
 
 use Brahmic\ClientDTO\ClientDTO;
 use Brahmic\ClientDTO\Requests\ExecutiveRequest;
+use Brahmic\ClientDTO\Response\ClientResponse;
 use Brahmic\ClientDTO\Support\ClientResolver;
 use Brahmic\ClientDTO\Support\Log;
 use Brahmic\ClientDTO\Support\PropertyContext;
@@ -37,9 +38,14 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
 
     // todo попытки, если валидация ответа не прошла и клиент решил повторить запрос
 
-    public function send(): ClientResponseInterface
+    public function send(): ClientResponseInterface|ClientResponse
     {
         $executiveRequest = new ExecutiveRequest($this);
+
+        //https://irbis.plus/ru/base/-/services/
+        //people-check.json?uuid=d9d27097-0689-4dfa-a819-71671ec971a6&filter0=allData&version=2&strategy=selected+&page=1&rows=10&token=45fadabbd2113da853324e3b6c8b4927
+        //https://irep.bezopasno.org/ru/base/-/services/report/d9d27097-0689-4dfa-a819-71671ec971a6/
+        //people-judge.json?event=role-data&page=1&rows=10&filter0=allData&filter_text=&strategy=selected&version=2&has_resolution=false
 
         dump('AbstractRequest send');
 

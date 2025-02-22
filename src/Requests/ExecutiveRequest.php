@@ -200,7 +200,14 @@ class ExecutiveRequest implements Arrayable
 
     private function getUrlWithQueryParams(): string
     {
-        return $this->url . RequestHelper::getInstance()->makeQueryString($this->queryParams);
+        $url =  $this->url;
+
+        $result = preg_replace_callback('/\{(\w+)\}/', function ($matches) {
+            $property = $matches[1];
+            return property_exists($this->getClientRequest(), $property) ? $this->getClientRequest()->$property : $matches[0];
+        }, $url);
+
+        return  $result . RequestHelper::getInstance()->makeQueryString($this->queryParams);
     }
 
     private function getMethod(AbstractRequest $abstractRequest): string

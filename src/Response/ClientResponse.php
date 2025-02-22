@@ -22,6 +22,10 @@ class ClientResponse implements ClientResponseInterface
         $this->make($this->response);
     }
 
+    public function getExecutiveRequest(): ExecutiveRequest
+    {
+        return $this->executiveRequest;
+    }
     private function make(Response $response)
     {
         if ($response->successful()) {
@@ -39,9 +43,11 @@ class ClientResponse implements ClientResponseInterface
 
                 Log::add('JSON received');
 
-                $this->resolved = $this->transforming($json);
+                $transformed = $this->transforming($json);
 
-                //dd('transform result', $result);
+                $class = $this->getClientRequest()::getDtoClass();
+                dd(Log::all());
+                $this->resolved = $class::from($transformed);
 
 
             } else {
@@ -52,6 +58,9 @@ class ClientResponse implements ClientResponseInterface
 
 
         } elseif ($response->clientError()) {
+
+            dump($this->executiveRequest);
+            dd($response->json());
             //4xx
             throw new Exception('Ошибка клиента');
 
@@ -104,30 +113,8 @@ class ClientResponse implements ClientResponseInterface
 
                 }
             }
-
-
-            return $result ?: $data;
         }
-
-        return Collection::make($this->executiveRequest->getChain())
-            ->reduce(function ($carry, $object) {
-
-                if (method_exists($object, 'transforming')) {
-                    try {
-                        $data = $object->transforming($carry);
-                        Log::add(sprintf("%s data transforming " . (is_object($carry) ? class_basename($carry) : gettype($carry)) . " >> " . (is_object($data) ? class_basename($data) : gettype($data)), class_basename($object)));
-                        return $data;
-                    } catch (TypeError $exception) {
-                        Log::add(sprintf("%s return null after transforming, process interrupted.", class_basename($object)));
-                        return null;
-                    } catch (CannotCreateData $exception) {
-
-                        Log::add(sprintf("Can't create %s", class_basename($object)));
-                        return null;
-                    }
-                }
-                return $carry;
-            }, $result);
+        return $result ?: $data;
     }
 
 
