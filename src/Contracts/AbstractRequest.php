@@ -8,6 +8,7 @@ use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
 use Brahmic\ClientDTO\Response\ResponseManager;
 use Brahmic\ClientDTO\Support\ClientResolver;
+use Brahmic\ClientDTO\Support\Log;
 use Brahmic\ClientDTO\Support\PropertyContext;
 use Brahmic\ClientDTO\Support\RequestHelper;
 use Brahmic\ClientDTO\Traits\BodyFormat;
@@ -41,21 +42,23 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
 
     public function send(): ClientResponseInterface
     {
-        $collectedRequest = new ExecutiveRequest($this);
+        $executiveRequest = new ExecutiveRequest($this);
 
         dump('AbstractRequest send');
 
-        $clientResponse = $collectedRequest->send();
+        $clientResponse = $executiveRequest->send();
 
-        while ($collectedRequest->canAttempt() && $clientResponse->isAttemptNeeded()) {
-            if ($collectedRequest->remainingOfAttempts()) {
+        while ($executiveRequest->canAttempt() && $clientResponse->isAttemptNeeded()) {
+            if ($executiveRequest->remainingOfAttempts()) {
                 usleep($this->getAttemptDelay() * 1000);
             }
-            $clientResponse = $collectedRequest->send();
+            $clientResponse = $executiveRequest->send();
         }
 
 
         //$this->getClientDTO()->isAttemptNeeded();
+        dump(str_repeat('*', 120));
+        dump(Log::all());
         dump('Response:');
         dump($clientResponse->response->status());
         dump($clientResponse->response->successful());

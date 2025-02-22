@@ -8,6 +8,7 @@ use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
 use Brahmic\ClientDTO\Response\ClientResponse;
 use Brahmic\ClientDTO\Response\ResponseManager;
+use Brahmic\ClientDTO\Support\Log;
 use Brahmic\ClientDTO\Support\RequestHelper;
 use Exception;
 use GuzzleHttp\Promise\PromiseInterface;
@@ -33,6 +34,7 @@ class ExecutiveRequest implements Arrayable
     private array $body = [];
 
     private array $files = [];
+    private array $chain = [];
 
     private string $bodyFormat; // 'json', 'form', 'multipart'
 
@@ -89,18 +91,45 @@ class ExecutiveRequest implements Arrayable
         return new ResponseManager($this, $response);//->make($response);
     }
 
-    private function getChain(): array
+    private function setChain(): void
     {
-        return array_filter([
+        $this->chain = array_filter([
             $this->clientRequest,
             $this->getClientRequest()->getResource(),
             $this->getClientRequest()->getClientDTO(),
         ]);
     }
 
+    public function isAttemptNeeded(mixed ...$args): bool
+    {
+        foreach ($this->chain as $chain) {
+            if (method_exists($chain, 'isAttemptNeeded')) {
+                if ($chain->isAttemptNeeded(...$args) === true) {
+
+                    //Log::add(sprintf("Запросом %s востребована ещё одна попытка из %s::isAttemptNeeded",
+                    Log::add(sprintf("%s::isAttemptNeeded востребовал ещё одну попытку для запроса %s",
+                        class_basename($chain),
+                        class_basename($this->getClientRequest()),
+                    ));
+
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private function runOnChain(string $method, ...$args): void
     {
-        array_walk($this->getChain, function (&$chain) use ($method, $args) {
+//        foreach ($this->chain as $chain) {
+//            if (method_exists($chain, $method) && call_user_func_array([$chain, $method], ...$args)) {
+//                return true;
+//            }
+//        }
+//        return false;
+
+        array_walk($this->chain, function ($chain) use ($method, $args) {
             if (method_exists($this->getClientRequest()->getResource(), 'isAttemptNeeded')) {
                 call_user_func_array([$chain, $method], ...$args);
                 return $this->getClientRequest()->getResource()->isAttemptNeeded(...$args);
@@ -109,7 +138,7 @@ class ExecutiveRequest implements Arrayable
         });
     }
 
-    public function isAttemptNeeded(mixed ...$args): bool
+    public function isAttemptNeeded__(mixed ...$args): bool
     {
 
         if (method_exists($this->clientRequest, 'isAttemptNeeded')) {

@@ -9,6 +9,7 @@ use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientDTOInterface;
 use Brahmic\ClientDTO\Contracts\ClientRequestInterface;
 use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
+use Brahmic\ClientDTO\Support\Log;
 use Brahmic\ClientDTO\Support\MimeTypes;
 use Closure;
 use Illuminate\Http\Client\Response;
@@ -16,28 +17,32 @@ use Spatie\LaravelData\Data;
 
 class ResponseManager implements ClientResponseInterface
 {
-    private array $logs = [];
     private ?Data $primaryDTO;
 
-    public function __construct(private readonly ExecutiveRequest $collectedRequest, public Response $response)
+    public function __construct(private readonly ExecutiveRequest $executiveRequest, public Response $response)
     {
-
+        $this->make($this->response);
     }
+
     public function make(Response $response): ClientResponseInterface
     {
         if ($response->successful()) {
-            $this->addLog('Запрос успешен, код: ' . $response->status());
+
+            Log::add(sprintf("Запрос %s успешен, код %s",
+                class_basename($this->getClientRequest()),
+                class_basename($response->status()),
+            ));
             //2xx
 
             if ($this->hasFile($response)) {
-                $this->addLog('Получен файл');
+                Log::add('Получен файл');
 
                 // вернуть файл типа FILE
                 //
             }
 
             if ($json = $this->tryToGetJson($response)) {
-                $this->addLog('Получен JSON');
+                Log::add('Получен JSON');
 
                 if ($this->primaryDTO = $this->getAdvanceCreationDTO($json, $this->getClientRequest())) {
                     dump($this->primaryDTO);
@@ -45,7 +50,7 @@ class ResponseManager implements ClientResponseInterface
 
             }
 
-            dump($this->logs);
+
             //if (advanceCreationDTO)
             //todo конкретную реализацию брать у клиента getClientResponseClass
             return new ClientResponse($response);
@@ -74,7 +79,7 @@ class ResponseManager implements ClientResponseInterface
 
     private function getClientRequest(): ClientRequestInterface
     {
-        return $this->collectedRequest->getClientRequest();
+        return $this->executiveRequest->getClientRequest();
     }
 
     private function getClientDTO(): ClientDTOInterface
@@ -86,13 +91,14 @@ class ResponseManager implements ClientResponseInterface
     public function isAttemptNeeded(): bool
     {
         $args = ResponseDTO::from([]);
-        return $this->collectedRequest->isAttemptNeeded($args, $this);
+        $args->status=-100;
+        return $this->executiveRequest->isAttemptNeeded($args, $this);
     }
 
     private function getAdvanceCreationDTO(array $data, ClientRequestInterface $clientRequest): ?Data
     {
         if ($dto = $this->getClientDTO()->advanceCreationDTO($data, $clientRequest)) {
-            $this->addLog(sprintf("Создан общий первичный объект %s через метод advanceCreationDTO", class_basename($dto)));
+            Log::add(sprintf("Создан общий первичный объект %s через метод advanceCreationDTO", class_basename($dto)));
             return $dto;
         }
         return null;
