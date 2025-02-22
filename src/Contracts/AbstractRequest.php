@@ -2,11 +2,8 @@
 
 namespace Brahmic\ClientDTO\Contracts;
 
-use Brahmic\ClientDTO\Builders\ExecutiveRequest;
 use Brahmic\ClientDTO\ClientDTO;
-use Brahmic\ClientDTO\Requests\GetRequest;
-use Brahmic\ClientDTO\Requests\PostRequest;
-use Brahmic\ClientDTO\Response\ResponseManager;
+use Brahmic\ClientDTO\Requests\ExecutiveRequest;
 use Brahmic\ClientDTO\Support\ClientResolver;
 use Brahmic\ClientDTO\Support\Log;
 use Brahmic\ClientDTO\Support\PropertyContext;
@@ -24,7 +21,7 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
 
     public const int ATTEMPTS = 1;
 
-    public const int ATTEMPT_DELAY = 2000;
+    public const int ATTEMPT_DELAY = 1000;
 
     public const ?string URI = null;
 
@@ -49,9 +46,6 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
         $clientResponse = $executiveRequest->send();
 
         while ($executiveRequest->canAttempt() && $clientResponse->isAttemptNeeded()) {
-            if ($executiveRequest->remainingOfAttempts()) {
-                usleep($this->getAttemptDelay() * 1000);
-            }
             $clientResponse = $executiveRequest->send();
         }
 

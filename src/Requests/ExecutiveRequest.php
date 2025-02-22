@@ -1,13 +1,10 @@
 <?php
 
-namespace Brahmic\ClientDTO\Builders;
+namespace Brahmic\ClientDTO\Requests;
 
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
-use Brahmic\ClientDTO\Requests\GetRequest;
-use Brahmic\ClientDTO\Requests\PostRequest;
 use Brahmic\ClientDTO\Response\ClientResponse;
-use Brahmic\ClientDTO\Response\ResponseManager;
 use Brahmic\ClientDTO\Support\Log;
 use Brahmic\ClientDTO\Support\RequestHelper;
 use Exception;
@@ -64,21 +61,24 @@ class ExecutiveRequest implements Arrayable
 
     }
 
-
     /**
      * Выполнить запрос
      * @throws \Throwable
      */
     public function send(bool $reset = false): ClientResponseInterface //romiseInterface|Response//: ResponseInterface
     {
-
         if ($reset) {
             $this->remainingOfAttempts = $this->attempts;
         }
 
-        throw_if($this->remainingOfAttempts < 0, new Exception("Unforeseen call. Attempts out of range"));
+        if ($this->remainingOfAttempts() !== $this->getAttempts()) {
+            Log::add("Wait ({$this->getClientRequest()->getAttemptDelay()}ms)...");
+            usleep($this->getClientRequest()->getAttemptDelay() * 1000);
+        }
 
-        dump('Builder send, attempt:' . $this->attempt());
+        throw_if($this->remainingOfAttempts < 0, new Exception("Unforeseen call. Attempts out of range."));
+
+        Log::add("Attempt {$this->attempt()}");
 
         $this->remainingOfAttempts -= 1;
 
@@ -88,71 +88,43 @@ class ExecutiveRequest implements Arrayable
             default => throw new \InvalidArgumentException("Unsupported request type."),
         };
 
-        return new ResponseManager($this, $response);//->make($response);
+        return new ClientResponse($this, $response);//->make($response);
     }
 
     private function setChain(): void
     {
         $this->chain = array_filter([
-            $this->clientRequest,
-            $this->getClientRequest()->getResource(),
             $this->getClientRequest()->getClientDTO(),
+            $this->getClientRequest()->getResource(),
+            $this->clientRequest,
         ]);
     }
 
-    public function isAttemptNeeded(mixed ...$args): bool
+    public function getChain(): array
     {
-        foreach ($this->chain as $chain) {
-            if (method_exists($chain, 'isAttemptNeeded')) {
-                if ($chain->isAttemptNeeded(...$args) === true) {
-
-                    //Log::add(sprintf("Запросом %s востребована ещё одна попытка из %s::isAttemptNeeded",
-                    Log::add(sprintf("%s::isAttemptNeeded востребовал ещё одну попытку для запроса %s",
-                        class_basename($chain),
-                        class_basename($this->getClientRequest()),
-                    ));
-
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return $this->chain;
     }
 
-    private function runOnChain(string $method, ...$args): void
-    {
+//    public function isAttemptNeeded(mixed ...$args): bool
+//    {
 //        foreach ($this->chain as $chain) {
-//            if (method_exists($chain, $method) && call_user_func_array([$chain, $method], ...$args)) {
-//                return true;
+//            if (method_exists($chain, 'isAttemptNeeded')) {
+//                if ($chain->isAttemptNeeded(...$args) === true) {
+//
+//                    //Log::add(sprintf("Запросом %s востребована ещё одна попытка из %s::isAttemptNeeded",
+//                    Log::add(sprintf("%s::isAttemptNeeded requested another attempt to request %s",
+//                        class_basename($chain),
+//                        class_basename($this->getClientRequest()),
+//                    ));
+//
+//                    return true;
+//                }
 //            }
 //        }
+//
 //        return false;
+//    }
 
-        array_walk($this->chain, function ($chain) use ($method, $args) {
-            if (method_exists($this->getClientRequest()->getResource(), 'isAttemptNeeded')) {
-                call_user_func_array([$chain, $method], ...$args);
-                return $this->getClientRequest()->getResource()->isAttemptNeeded(...$args);
-            }
-
-        });
-    }
-
-    public function isAttemptNeeded__(mixed ...$args): bool
-    {
-
-        if (method_exists($this->clientRequest, 'isAttemptNeeded')) {
-            return $this->clientRequest->isAttemptNeeded(...$args);
-        }
-        if (method_exists($this->getClientRequest()->getResource(), 'isAttemptNeeded')) {
-            return $this->getClientRequest()->getResource()->isAttemptNeeded(...$args);
-        }
-        if (method_exists($this->getClientRequest()->getClientDTO(), 'isAttemptNeeded')) {
-            return $this->getClientRequest()->getClientDTO()->isAttemptNeeded(...$args);
-        }
-
-        return false;
-    }
 
     public function getAttempts(): int
     {
