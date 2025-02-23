@@ -47,22 +47,11 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
         //https://irep.bezopasno.org/ru/base/-/services/report/d9d27097-0689-4dfa-a819-71671ec971a6/
         //people-judge.json?event=role-data&page=1&rows=10&filter0=allData&filter_text=&strategy=selected&version=2&has_resolution=false
 
-        dump('AbstractRequest send');
-
         $clientResponse = $executiveRequest->send();
 
         while ($executiveRequest->canAttempt() && $clientResponse->isAttemptNeeded()) {
             $clientResponse = $executiveRequest->send();
         }
-
-
-        //$this->getClientDTO()->isAttemptNeeded();
-        dump(str_repeat('*', 120));
-        dump(Log::all());
-        dump('Response:');
-        dump($clientResponse->response->status());
-        dump($clientResponse->response->successful());
-        dump($clientResponse->response->body());
 
         return $clientResponse;
     }

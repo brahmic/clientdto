@@ -5,6 +5,7 @@ namespace Brahmic\ClientDTO;
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientDTOInterface;
 use Brahmic\ClientDTO\Contracts\ClientRequestInterface;
+use Brahmic\ClientDTO\Response\ClientResponse;
 use Brahmic\ClientDTO\Support\ClientResolver;
 use Brahmic\ClientDTO\Traits\BodyFormat;
 use Brahmic\ClientDTO\Traits\QueryParams;
@@ -64,4 +65,8 @@ class ClientDTO implements ClientDTOInterface
         return $this;
     }
 
+    public function getResponseClass(): string
+    {
+        return ClientResponse::class;
+    }
 }

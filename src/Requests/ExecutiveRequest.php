@@ -13,6 +13,7 @@ use GuzzleHttp\RequestOptions;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use InvalidArgumentException;
 
 class ExecutiveRequest implements Arrayable
 {
@@ -36,6 +37,7 @@ class ExecutiveRequest implements Arrayable
     private string $bodyFormat; // 'json', 'form', 'multipart'
 
     private string $fullUrl;
+    private Log $log;
 
     private array $types = [
         GetRequest::class => 'get',
@@ -46,6 +48,7 @@ class ExecutiveRequest implements Arrayable
 
     public function __construct(readonly private AbstractRequest $clientRequest)
     {
+        $this->log = new Log();
         $this->setQueryParams();
         $this->setBodyParams();
         $this->setChain();
@@ -61,9 +64,13 @@ class ExecutiveRequest implements Arrayable
 
     }
 
+    public function log():Log
+    {
+        return $this->log;
+    }
+
     /**
      * Выполнить запрос
-     * @throws \Throwable
      */
     public function send(bool $reset = false): ClientResponseInterface //romiseInterface|Response//: ResponseInterface
     {
@@ -72,23 +79,25 @@ class ExecutiveRequest implements Arrayable
         }
 
         if ($this->remainingOfAttempts() !== $this->getAttempts()) {
-            Log::add("Wait ({$this->getClientRequest()->getAttemptDelay()}ms)...");
+            $this->log->add("Wait ({$this->getClientRequest()->getAttemptDelay()}ms)...");
             usleep($this->getClientRequest()->getAttemptDelay() * 1000);
         }
 
         throw_if($this->remainingOfAttempts < 0, new Exception("Unforeseen call. Attempts out of range."));
 
-        Log::add("Attempt {$this->attempt()}");
+        $this->log->add("Attempt {$this->attempt()}");
 
         $this->remainingOfAttempts -= 1;
 
         $response = match ($this->getMethod($this->clientRequest)) {
             'get' => $this->get(),
             'post' => $this->post(),
-            default => throw new \InvalidArgumentException("Unsupported request type."),
+            default => throw new InvalidArgumentException("Unsupported request type."),
         };
 
-        return new ClientResponse($this, $response);//->make($response);
+        $responseClass = $this->getClientRequest()->getClientDTO()->getResponseClass();
+
+        return new $responseClass($this, $response);
     }
 
     private function setChain(): void
@@ -104,27 +113,6 @@ class ExecutiveRequest implements Arrayable
     {
         return $this->chain;
     }
-
-//    public function isAttemptNeeded(mixed ...$args): bool
-//    {
-//        foreach ($this->chain as $chain) {
-//            if (method_exists($chain, 'isAttemptNeeded')) {
-//                if ($chain->isAttemptNeeded(...$args) === true) {
-//
-//                    //Log::add(sprintf("Запросом %s востребована ещё одна попытка из %s::isAttemptNeeded",
-//                    Log::add(sprintf("%s::isAttemptNeeded requested another attempt to request %s",
-//                        class_basename($chain),
-//                        class_basename($this->getClientRequest()),
-//                    ));
-//
-//                    return true;
-//                }
-//            }
-//        }
-//
-//        return false;
-//    }
-
 
     public function getAttempts(): int
     {
