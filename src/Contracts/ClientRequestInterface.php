@@ -9,4 +9,5 @@ interface ClientRequestInterface
 {
 
     public static function getDtoClass(): string|Data;
+    public function toArray(): array;
 }

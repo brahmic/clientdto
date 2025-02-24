@@ -3,21 +3,23 @@
 namespace Brahmic\ClientDTO\Requests;
 
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
-use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
-use Brahmic\ClientDTO\Response\ClientResponse;
 use Brahmic\ClientDTO\Support\Log;
 use Brahmic\ClientDTO\Support\RequestHelper;
-use Exception;
 use GuzzleHttp\Promise\PromiseInterface;
 use GuzzleHttp\RequestOptions;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
+use RuntimeException;
+use Validator;
 
 class ExecutiveRequest implements Arrayable
 {
-    private int $attempts;
+//    private int $attempts;
+//
+//    private int $remainingOfAttempts;
 
     private string $url;
 
@@ -30,13 +32,13 @@ class ExecutiveRequest implements Arrayable
     private array $cookies = [];
 
     private array $body = [];
-
     private array $files = [];
+
     private array $chain = [];
 
     private string $bodyFormat; // 'json', 'form', 'multipart'
-
     private string $fullUrl;
+
     private Log $log;
 
     private array $types = [
@@ -44,17 +46,19 @@ class ExecutiveRequest implements Arrayable
         PostRequest::class => 'post',
     ];
 
-    private int $remainingOfAttempts;
-
     public function __construct(readonly private AbstractRequest $clientRequest)
     {
+
+        $this->validate();
+
         $this->log = new Log();
+
         $this->setQueryParams();
         $this->setBodyParams();
         $this->setChain();
 
-        $this->attempts = $this->clientRequest->getAttempts();
-        $this->remainingOfAttempts = $this->attempts;
+//        $this->attempts = $this->clientRequest->getAttempts();
+//        $this->remainingOfAttempts = $this->attempts;
         $this->url = $this->clientRequest->getUrl();
         $this->fullUrl = $this->getUrlWithQueryParams();
         $this->headers = $this->clientRequest->getClientDTO()->getHeaders();
@@ -62,6 +66,15 @@ class ExecutiveRequest implements Arrayable
         $this->timeout = $this->clientRequest->getTimeout() ?: $this->clientRequest->getClientDTO()->getTimeout();
 
 
+    }
+
+    public function validate()
+    {
+        $validator = Validator::make($this->clientRequest->toArray(), $this->clientRequest::rules());
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
     }
 
     public function log():Log
@@ -72,32 +85,28 @@ class ExecutiveRequest implements Arrayable
     /**
      * Выполнить запрос
      */
-    public function send(bool $reset = false): ClientResponseInterface //romiseInterface|Response//: ResponseInterface
+    public function send(bool $reset = false): PromiseInterface|Response
     {
-        if ($reset) {
-            $this->remainingOfAttempts = $this->attempts;
-        }
+//        if ($reset) {
+//            $this->remainingOfAttempts = $this->attempts;
+//        }
+//
+//        if ($this->remainingOfAttempts() !== $this->getAttempts()) {
+//            $this->log->add("Wait ({$this->getClientRequest()->getAttemptDelay()}ms)...");
+//            usleep($this->getClientRequest()->getAttemptDelay() * 1000);
+//        }
+//
+//        throw_if($this->remainingOfAttempts < 0, new RuntimeException("Unforeseen call. Attempts out of range."));
+//
+//        $this->log->add("Attempt {$this->attempt()}");
+//
+//        $this->remainingOfAttempts -= 1;
 
-        if ($this->remainingOfAttempts() !== $this->getAttempts()) {
-            $this->log->add("Wait ({$this->getClientRequest()->getAttemptDelay()}ms)...");
-            usleep($this->getClientRequest()->getAttemptDelay() * 1000);
-        }
-
-        throw_if($this->remainingOfAttempts < 0, new Exception("Unforeseen call. Attempts out of range."));
-
-        $this->log->add("Attempt {$this->attempt()}");
-
-        $this->remainingOfAttempts -= 1;
-
-        $response = match ($this->getMethod($this->clientRequest)) {
+        return match ($this->getMethod($this->clientRequest)) {
             'get' => $this->get(),
             'post' => $this->post(),
             default => throw new InvalidArgumentException("Unsupported request type."),
         };
-
-        $responseClass = $this->getClientRequest()->getClientDTO()->getResponseClass();
-
-        return new $responseClass($this, $response);
     }
 
     private function setChain(): void
@@ -116,23 +125,23 @@ class ExecutiveRequest implements Arrayable
 
     public function getAttempts(): int
     {
-        return $this->attempts;
+        return $this->clientRequest->getAttempts();
     }
 
-    public function canAttempt(): bool
-    {
-        return $this->remainingOfAttempts > 0;
-    }
-
-    public function attempt(): int
-    {
-        return ($this->attempts - $this->remainingOfAttempts) + 1;
-    }
-
-    public function remainingOfAttempts(): int
-    {
-        return $this->remainingOfAttempts;
-    }
+//    public function canAttempt(): bool
+//    {
+//        return $this->remainingOfAttempts > 0;
+//    }
+//
+//    public function attempt(): int
+//    {
+//        return ($this->attempts - $this->remainingOfAttempts) + 1;
+//    }
+//
+//    public function remainingOfAttempts(): int
+//    {
+//        return $this->remainingOfAttempts;
+//    }
 
 
     public function getClientRequest(): AbstractRequest
@@ -165,7 +174,7 @@ class ExecutiveRequest implements Arrayable
             RequestOptions::JSON => $request->post($this->fullUrl, $this->body),
             RequestOptions::FORM_PARAMS => $request->asForm()->post($this->fullUrl, $this->body),
             RequestOptions::MULTIPART => $request->asMultipart()->post($this->fullUrl, array_merge($this->body, $this->files)),
-            default => throw new \InvalidArgumentException("Unsupported content type: $this->bodyFormat"),
+            default => throw new InvalidArgumentException("Unsupported content type: $this->bodyFormat"),
         };
     }
 
@@ -186,7 +195,7 @@ class ExecutiveRequest implements Arrayable
         );
     }
 
-    private function getUrlWithQueryParams(): string
+    public function getUrlWithQueryParams(): string
     {
         $url =  $this->url;
 

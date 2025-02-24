@@ -8,4 +8,5 @@ interface ClientResponseInterface
 {
 
     //public function isAttemptNeeded(): bool;
+    public function toArray(): array;
 }

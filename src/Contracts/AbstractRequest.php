@@ -4,6 +4,7 @@ namespace Brahmic\ClientDTO\Contracts;
 
 use Brahmic\ClientDTO\ClientDTO;
 use Brahmic\ClientDTO\Requests\ExecutiveRequest;
+use Brahmic\ClientDTO\Requests\Executor;
 use Brahmic\ClientDTO\Response\ClientResponse;
 use Brahmic\ClientDTO\Support\ClientResolver;
 use Brahmic\ClientDTO\Support\Log;
@@ -13,6 +14,9 @@ use Brahmic\ClientDTO\Traits\BodyFormat;
 use Brahmic\ClientDTO\Traits\QueryParams;
 use Brahmic\ClientDTO\Traits\Timeout;
 use Exception;
+use GuzzleHttp\Promise\PromiseInterface;
+use Illuminate\Http\Client\Response;
+use Illuminate\Validation\ValidationException;
 use Spatie\LaravelData\Data;
 
 
@@ -40,42 +44,35 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
 
     public function send(): ClientResponseInterface|ClientResponse
     {
-        $executiveRequest = new ExecutiveRequest($this);
-
-        //https://irbis.plus/ru/base/-/services/
-        //people-check.json?uuid=d9d27097-0689-4dfa-a819-71671ec971a6&filter0=allData&version=2&strategy=selected+&page=1&rows=10&token=45fadabbd2113da853324e3b6c8b4927
-        //https://irep.bezopasno.org/ru/base/-/services/report/d9d27097-0689-4dfa-a819-71671ec971a6/
-        //people-judge.json?event=role-data&page=1&rows=10&filter0=allData&filter_text=&strategy=selected&version=2&has_resolution=false
-
-        $clientResponse = $executiveRequest->send();
-
-        while ($executiveRequest->canAttempt() && $clientResponse->isAttemptNeeded()) {
-            $clientResponse = $executiveRequest->send();
-        }
-
-        return $clientResponse;
+        return new Executor($this)->exec();
     }
 
-
-    /**
-     * Определяет нужна ли дополнительная попытка
-     * Default behavior
-     * @return bool
-     */
-    public function conditionOfAttempt(): bool
-    {
-        return false;
-    }
-
-    /**
-     * Определяет условие, при котором задача по получению данных выполнена.
-     * Вызывается только для запросов 2xx.
-     * @return bool
-     */
-    public function conditionIfResolved(): bool
-    {
-        return false;
-    }
+//    private function createClientResponse(PromiseInterface|Response $response): ClientResponseInterface
+//    {
+//        $responseClass = $this->getClientDTO()->getResponseClass();
+//
+//        return new $responseClass($this, $response);
+//    }
+//
+//    /**
+//     * Определяет нужна ли дополнительная попытка
+//     * Default behavior
+//     * @return bool
+//     */
+//    public function conditionOfAttempt(): bool
+//    {
+//        return false;
+//    }
+//
+//    /**
+//     * Определяет условие, при котором задача по получению данных выполнена.
+//     * Вызывается только для запросов 2xx.
+//     * @return bool
+//     */
+//    public function conditionIfResolved(): bool
+//    {
+//        return false;
+//    }
 
 
     /**
