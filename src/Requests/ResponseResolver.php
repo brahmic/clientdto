@@ -47,9 +47,8 @@ class ResponseResolver
     public function execute(): ClientResponseInterface|ClientResponse
     {
         try {
-            $this->executiveRequest = new ExecutiveRequest($this->clientRequest);
 
-            $this->log->add('Executive created');
+            $this->executiveRequest = new ExecutiveRequest($this->clientRequest);
 
             do {
                 $this->pauseIfNeed();
@@ -58,10 +57,7 @@ class ResponseResolver
 
                 $response = $this->executiveRequest->send();
 
-
                 $this->obtain($response);
-
-
 
             } while ($this->hasAttempts() && $this->isAttemptNeeded());
 
@@ -84,6 +80,7 @@ class ResponseResolver
             dump('Throwable $exception');
             dd($exception->getMessage());
         }
+
         $this->log()->add('Completed');
 
         dump($this->log->all());
@@ -128,7 +125,7 @@ class ResponseResolver
 
             $this->log()->add('File received');
 
-            //$this->resolved = //= вернуть файл типа FILE
+            //$this->resolved = //$this->resolveFile($xxxxxxx); вернуть файл типа FILE
 
         } elseif ($json = $this->tryToGetJson($response)) {
 
@@ -139,6 +136,13 @@ class ResponseResolver
         } else {
             $this->resolved = $response->body();
         }
+
+    }
+
+    private function resolveFile(mixed $data): mixed
+    {
+        //файл, который надо скачать, распаковать и прочее
+        //файл, который файл
 
     }
 
@@ -260,7 +264,6 @@ class ResponseResolver
 
     private function decreaseAttempt(): void
     {
-        dump('Attempt ' . $this->attempt());
         $this->log->add("Attempt {$this->attempt()}");
 
         $this->remainingOfAttempts -= 1;
@@ -268,17 +271,12 @@ class ResponseResolver
 
     private function pauseIfNeed(): void
     {
-//        if ($reset) {
-//            $this->remainingOfAttempts = $this->attempts;
-//        }
-
         if ($this->remainingOfAttempts() !== $this->getAttempts()) {
-            $this->log->add("Wait ({$this->getAttemptDelay()}ms)...");
+            $this->log->add("Wait {$this->getAttemptDelay()}ms...");
             usleep($this->getAttemptDelay() * 1000);
         }
 
         throw_if($this->remainingOfAttempts < 0, new RuntimeException("Unforeseen call. Attempts out of range."));
-
     }
 
     private function createClientResponse(PromiseInterface|Response $response): ClientResponseInterface
