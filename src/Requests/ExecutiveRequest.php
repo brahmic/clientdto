@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use RuntimeException;
+use Spatie\LaravelData\Data;
 use Validator;
 
 class ExecutiveRequest implements Arrayable
@@ -37,6 +38,7 @@ class ExecutiveRequest implements Arrayable
     private array $chain = [];
 
     private string $bodyFormat; // 'json', 'form', 'multipart'
+
     private string $fullUrl;
 
     private Log $log;
@@ -48,8 +50,7 @@ class ExecutiveRequest implements Arrayable
 
     public function __construct(readonly private AbstractRequest $clientRequest)
     {
-
-        $this->validate();
+        $clientRequest::validate($clientRequest->toArray());
 
         $this->log = new Log();
 
@@ -68,16 +69,16 @@ class ExecutiveRequest implements Arrayable
 
     }
 
-    public function validate()
+    public static function validate(array $data, $model): void
     {
-        $validator = Validator::make($this->clientRequest->toArray(), $this->clientRequest::rules());
+        $validator = Validator::make($data, $model::getValidationRules([]));
 
         if ($validator->fails()) {
             throw new ValidationException($validator);
         }
     }
 
-    public function log():Log
+    public function log(): Log
     {
         return $this->log;
     }
@@ -85,23 +86,8 @@ class ExecutiveRequest implements Arrayable
     /**
      * Выполнить запрос
      */
-    public function send(bool $reset = false): PromiseInterface|Response
+    public function send(): PromiseInterface|Response
     {
-//        if ($reset) {
-//            $this->remainingOfAttempts = $this->attempts;
-//        }
-//
-//        if ($this->remainingOfAttempts() !== $this->getAttempts()) {
-//            $this->log->add("Wait ({$this->getClientRequest()->getAttemptDelay()}ms)...");
-//            usleep($this->getClientRequest()->getAttemptDelay() * 1000);
-//        }
-//
-//        throw_if($this->remainingOfAttempts < 0, new RuntimeException("Unforeseen call. Attempts out of range."));
-//
-//        $this->log->add("Attempt {$this->attempt()}");
-//
-//        $this->remainingOfAttempts -= 1;
-
         return match ($this->getMethod($this->clientRequest)) {
             'get' => $this->get(),
             'post' => $this->post(),
@@ -127,22 +113,6 @@ class ExecutiveRequest implements Arrayable
     {
         return $this->clientRequest->getAttempts();
     }
-
-//    public function canAttempt(): bool
-//    {
-//        return $this->remainingOfAttempts > 0;
-//    }
-//
-//    public function attempt(): int
-//    {
-//        return ($this->attempts - $this->remainingOfAttempts) + 1;
-//    }
-//
-//    public function remainingOfAttempts(): int
-//    {
-//        return $this->remainingOfAttempts;
-//    }
-
 
     public function getClientRequest(): AbstractRequest
     {
@@ -197,14 +167,14 @@ class ExecutiveRequest implements Arrayable
 
     public function getUrlWithQueryParams(): string
     {
-        $url =  $this->url;
+        $url = $this->url;
 
         $result = preg_replace_callback('/\{(\w+)\}/', function ($matches) {
             $property = $matches[1];
             return property_exists($this->getClientRequest(), $property) ? $this->getClientRequest()->$property : $matches[0];
         }, $url);
 
-        return  $result . RequestHelper::getInstance()->makeQueryString($this->queryParams);
+        return $result . RequestHelper::getInstance()->makeQueryString($this->queryParams);
     }
 
     private function getMethod(AbstractRequest $abstractRequest): string

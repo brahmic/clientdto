@@ -16,8 +16,10 @@ use Brahmic\ClientDTO\Traits\Timeout;
 use Exception;
 use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Spatie\LaravelData\Data;
+use Illuminate\Contracts\Support\Arrayable;
 
 
 abstract class AbstractRequest extends Data implements ClientRequestInterface
@@ -123,10 +125,10 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
         return static::NAME;
     }
 
-    public function validator(): ClientDTO
-    {
-        return $this->getClientDTO()->validator();
-    }
+//    public function validator(): ClientDTO
+//    {
+//        return $this->getClientDTO()->validator();
+//    }
 
     public function getClientDTO(): ClientDTO
     {
@@ -152,4 +154,16 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
     {
         return RequestHelper::getInstance()->fill($this, $data, $filter);
     }
+
+    public static function validate(array|Arrayable $payload = []): array|Arrayable
+    {
+        $validator = Validator::make($payload, static::getValidationRules([]));
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
+        return $validator->validated();
+    }
+
 }

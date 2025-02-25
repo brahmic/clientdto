@@ -13,14 +13,11 @@ final class PersonalData extends Data
 {
 
     public function __construct(
-        #[Required]
         #[Min(1)] // Минимум 1 регион
         #[Max(2)] // Максимум 2 региона
         #[Distinct] // Все элементы массива должны быть уникальным
         public readonly array $regions,
-        #[Required]
         public readonly string  $lastName,
-        #[Required]
         public readonly string  $firstName,
 
         public readonly ?string $secondName = null,

@@ -12,7 +12,6 @@
   ],
   "require": {
     "php": "^8.4",
-    "spatie/laravel-data": "^4.13",
     "illuminate/http": "^10.0|^11.0",
     "illuminate/collections": "^10.0|^11.0",
     "illuminate/support": "^10.0|^11.0"

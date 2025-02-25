@@ -23,7 +23,7 @@ class Executor
 
     private ?string $message = null;
 
-    private mixed $resolved;
+    private mixed $resolved = null;
 
     private Log $log;
 
@@ -32,6 +32,7 @@ class Executor
     private array $details = [];
 
     private ExecutiveRequest $executiveRequest;
+    private bool $isAttemptNeeded;
 
     public function __construct(private readonly AbstractRequest $clientRequest)
     {
@@ -39,22 +40,44 @@ class Executor
         $this->remainingOfAttempts = $this->getAttempts();
         $this->attempts = $this->getAttempts();
 
-        try {
-            $this->executiveRequest = new ExecutiveRequest($this->clientRequest);
-
-        } catch (ValidationException $exception) {
-
-            dd($exception->getMessage());
-
-        }
+        $this->log->add('Execute request: ' . class_basename($clientRequest));
     }
 
     public function exec(): ClientResponseInterface|ClientResponse
     {
-        do {
-            $response = $this->send();
+        try {
+            $this->executiveRequest = new ExecutiveRequest($this->clientRequest);
 
-        } while ($this->canAttempt() && $this->isAttemptNeeded());
+            $this->log->add('Executive created');
+
+            do {
+                $response = $this->send();
+                dump($this->isAttemptNeeded());
+
+            } while ($this->canAttempt() && $this->isAttemptNeeded());
+
+
+        } catch (ValidationException $exception) {
+
+            dump($this->log->all());
+            dump($exception->getMessage());
+            dd($exception->validator->errors()->all());
+
+        } catch (CannotCreateData $cannotCreateData) {
+
+            $this->message = "Не удалось создать объект {class} для " . $cannotCreateData->getMessage();
+            $this->log()->add('Failed to create final object');
+
+        } catch (\Throwable $exception) {
+
+            // todo ошибка в коде непредвиденная
+            throw $exception;
+            dump('Throwable $exception');
+            dd($exception->getMessage());
+        }
+        $this->log()->add('Completed');
+
+        dump($this->log->all());
 
 
 //        while ($this->canAttempt() && $this->isAttemptNeeded()) {
@@ -68,27 +91,16 @@ class Executor
     /**
      * @throws \Throwable
      */
-    private function send(bool $reset = false): PromiseInterface|Response
+    private function send(): PromiseInterface|Response
     {
-        if ($reset) {
-            $this->remainingOfAttempts = $this->attempts;
-        }
+        $this->pauseIfNeed();
 
-        if ($this->remainingOfAttempts() !== $this->getAttempts()) {
-            $this->log->add("Wait ({$this->getAttemptDelay()}ms)...");
-            usleep($this->getAttemptDelay() * 1000);
-        }
-
-        throw_if($this->remainingOfAttempts < 0, new RuntimeException("Unforeseen call. Attempts out of range."));
-        dump('Attempt ' . $this->attempt());
-        $this->log->add("Attempt {$this->attempt()}");
-
-        $this->remainingOfAttempts -= 1;
+        $this->decreaseAttempt();
 
         $response = $this->executiveRequest->send();
 
         $this->obtain($response);
-dd($this);
+
         return $response;
     }
 
@@ -113,20 +125,21 @@ dd($this);
 
                 $this->log()->add('JSON received');
 
-                if ($transformed = $this->transforming($json) && $class = $this->getClientRequest()::getDtoClass()) {
-                    try {
+                ;
+                //if (($transformed = $this->transforming($json)) && ($class = $this->getClientRequest()::getDtoClass())) {
+                if (($transformed = $this->prepare($json)) && ($class = $this->getClientRequest()::getDtoClass())) {
+
+                    dump($transformed);
+
+                    if (!$this->isAttemptNeeded) {
                         $this->resolved = $class::from($transformed);
-                    } catch (CannotCreateData $cannotCreateData) {
-                        $this->message = "Не удалось создать объект {$class} для ";
-                        $this->log()->add('Failed to create final object');
                     }
+                    //dd($this->resolved);
                 }
 
             } else {
                 $this->resolved = $response->body();
             }
-            //dd($this->log()->all());
-            $this->log()->add('Completed');
 
 
         } elseif ($response->clientError()) { //4xx
@@ -140,10 +153,34 @@ dd($this);
         } else {
             $this->message = 'Неожиданный статус';
         }
+    }
 
-        //Если ошибка техническая, возвращаем типовой ответ
-        //todo Если ошибка от валидатора клиента — возвращаем её. правильность заполнения?
-        //throw new Exception('Неизвестная ошибка');
+    private function prepare(mixed $data)
+    {
+        $transformed = $data;
+
+        $this->isAttemptNeeded = false;
+
+        foreach ($this->executiveRequest->getChain() as $object) {
+
+            $transformed = $this->chainTransforming($object, $transformed);
+
+            if ($this->isAttemptNeeded = $this->chainIsAttemptNeeded($object, $transformed)) {
+                return  $transformed;
+            }
+        }
+
+        return $transformed;
+    }
+
+    private function chainTransforming(object $object, mixed $data): mixed
+    {
+        if (method_exists($object, 'transforming')) {
+
+            return $object->transforming($data);
+        }
+
+        return $data;
     }
 
     private function transforming(mixed $data): mixed
@@ -155,6 +192,7 @@ dd($this);
             if (method_exists($object, 'transforming')) {
 
                 try {
+
                     $result = $object->transforming($data);
 
                     $this->log()->add(sprintf("%s data transforming " . (is_object($data) ? class_basename($data) : gettype($data)) . " >> " . (is_object($result) ? class_basename($result) : gettype($result)), class_basename($object)));
@@ -189,9 +227,58 @@ dd($this);
             }
         }
 
-        return $result ?: $data;
+        return $result ?? $data;
     }
 
+    private function isAttemptNeeded(): bool
+    {
+//        if (!$this->isResolved()) {
+//            return false;
+//        }
+        return $this->isAttemptNeeded;
+        //return array_any($this->executiveRequest->getChain(), fn($chain) => $this->ifChainIsAttemptNeeded($chain));
+    }
+
+    private function chainIsAttemptNeeded(object $object, mixed $transformed): bool
+    {
+        if (method_exists($object, 'isAttemptNeeded')) {
+
+            if ($object->isAttemptNeeded($transformed, $this) === true) {
+
+                $this->log->add(sprintf("%s::isAttemptNeeded requested another attempt to request %s",
+                    class_basename($object),
+                    class_basename($this->clientRequest),
+                ));
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function decreaseAttempt(): void
+    {
+        dump('Attempt ' . $this->attempt());
+        $this->log->add("Attempt {$this->attempt()}");
+
+        $this->remainingOfAttempts -= 1;
+    }
+
+    private function pauseIfNeed(): void
+    {
+//        if ($reset) {
+//            $this->remainingOfAttempts = $this->attempts;
+//        }
+
+        if ($this->remainingOfAttempts() !== $this->getAttempts()) {
+            $this->log->add("Wait ({$this->getAttemptDelay()}ms)...");
+            usleep($this->getAttemptDelay() * 1000);
+        }
+
+        throw_if($this->remainingOfAttempts < 0, new RuntimeException("Unforeseen call. Attempts out of range."));
+
+    }
 
     private function createClientResponse(PromiseInterface|Response $response): ClientResponseInterface
     {
@@ -236,30 +323,6 @@ dd($this);
         $hasContentDisposition = str_contains($response->header('Content-Disposition'), 'attachment');
 
         return $hasContentType || $hasContentDisposition;
-    }
-
-    private function isAttemptNeeded(): bool
-    {
-        if (!$this->isResolved()) {
-            return false;
-        }
-
-        foreach ($this->executiveRequest->getChain() as $chain) {
-            if (method_exists($chain, 'isAttemptNeeded')) {
-                if ($chain->isAttemptNeeded($this->resolved, $this) === true) {
-
-                    //$this->log()->add(sprintf("Запросом %s востребована ещё одна попытка из %s::isAttemptNeeded",
-                    $this->log->add(sprintf("%s::isAttemptNeeded requested another attempt to request %s",
-                        class_basename($chain),
-                        class_basename($this->clientRequest),
-                    ));
-
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 
     private function getClientRequest(): ClientRequestInterface

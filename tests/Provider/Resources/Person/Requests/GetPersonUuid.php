@@ -24,15 +24,12 @@ class GetPersonUuid extends GetRequest
 
 
     //#[HideFromBody]
-    #[Required]
     public array $regions;
 
     #[MapOutputName('PeopleQuery.LastName')]
-    #[Required]
     public string $lastName;
 
     #[MapOutputName('PeopleQuery.FirstName')]
-    #[Required]
     public string $firstName;
 
     #[MapOutputName('PeopleQuery.SecondName')]
