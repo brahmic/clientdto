@@ -46,7 +46,7 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
 
     public function send(): ClientResponseInterface|ClientResponse
     {
-        return new Executor($this)->exec();
+        return new Executor($this)->execute();
     }
 
 //    private function createClientResponse(PromiseInterface|Response $response): ClientResponseInterface

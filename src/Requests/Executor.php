@@ -12,6 +12,7 @@ use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Http\Client\Response;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
+use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Exceptions\CannotCreateData;
 use TypeError;
 
@@ -43,7 +44,7 @@ class Executor
         $this->log->add('Execute request: ' . class_basename($clientRequest));
     }
 
-    public function exec(): ClientResponseInterface|ClientResponse
+    public function execute(): ClientResponseInterface|ClientResponse
     {
         try {
             $this->executiveRequest = new ExecutiveRequest($this->clientRequest);
@@ -53,8 +54,9 @@ class Executor
             do {
                 $response = $this->send();
                 dump($this->isAttemptNeeded());
+                dump($this->remainingOfAttempts);
 
-            } while ($this->canAttempt() && $this->isAttemptNeeded());
+            } while ($this->hasAttempts() && $this->isAttemptNeeded());
 
 
         } catch (ValidationException $exception) {
@@ -79,11 +81,6 @@ class Executor
 
         dump($this->log->all());
 
-
-//        while ($this->canAttempt() && $this->isAttemptNeeded()) {
-//            $response = $this->send();
-//        }
-
         return $this->createClientResponse($response);
     }
 
@@ -99,48 +96,9 @@ class Executor
 
         $response = $this->executiveRequest->send();
 
-        $this->obtain($response);
-
-        return $response;
-    }
-
-
-    private function obtain(Response $response): void
-    {
         if ($response->successful()) {
 
-            $this->log()->add(sprintf("Request %s is successful, code: %s",
-                class_basename($this->getClientRequest()),
-                class_basename($response->status()),
-            ));
-            //2xx
-
-            if ($this->hasFile($response)) {
-
-                $this->log()->add('File received');
-
-                //$this->resolved = //= вернуть файл типа FILE
-
-            } elseif ($json = $this->tryToGetJson($response)) {
-
-                $this->log()->add('JSON received');
-
-                ;
-                //if (($transformed = $this->transforming($json)) && ($class = $this->getClientRequest()::getDtoClass())) {
-                if (($transformed = $this->prepare($json)) && ($class = $this->getClientRequest()::getDtoClass())) {
-
-                    dump($transformed);
-
-                    if (!$this->isAttemptNeeded) {
-                        $this->resolved = $class::from($transformed);
-                    }
-                    //dd($this->resolved);
-                }
-
-            } else {
-                $this->resolved = $response->body();
-            }
-
+            $this->resolve($response);
 
         } elseif ($response->clientError()) { //4xx
 
@@ -153,9 +111,51 @@ class Executor
         } else {
             $this->message = 'Неожиданный статус';
         }
+
+        return $response;
     }
 
-    private function prepare(mixed $data)
+
+    private function resolve(Response $response): void
+    {
+        $this->log()->add(sprintf("Request %s is successful, code: %s",
+            class_basename($this->getClientRequest()),
+            class_basename($response->status()),
+        ));
+        //2xx
+
+        if ($this->hasFile($response)) {
+
+            $this->log()->add('File received');
+
+            //$this->resolved = //= вернуть файл типа FILE
+
+        } elseif ($json = $this->tryToGetJson($response)) {
+
+            $this->log()->add('JSON received');;
+
+            $this->resolved = $this->resolveJson($json);
+
+        } else {
+            $this->resolved = $response->body();
+        }
+
+
+    }
+
+    private function resolveJson(mixed $data): mixed
+    {
+        $transformed = $this->prepare($data);
+        $class = $this->getClientRequest()::getDtoClass();
+
+        if ($transformed && $class && !$this->isAttemptNeeded) {
+            return $class::from($transformed);
+        }
+
+        return $data;
+    }
+
+    private function prepare(mixed $data): mixed
     {
         $transformed = $data;
 
@@ -165,8 +165,8 @@ class Executor
 
             $transformed = $this->chainTransforming($object, $transformed);
 
-            if ($this->isAttemptNeeded = $this->chainIsAttemptNeeded($object, $transformed)) {
-                return  $transformed;
+            if ($this->hasAttempts() && $this->isAttemptNeeded = $this->chainIsAttemptNeeded($object, $transformed)) {
+                return $transformed;
             }
         }
 
@@ -232,11 +232,7 @@ class Executor
 
     private function isAttemptNeeded(): bool
     {
-//        if (!$this->isResolved()) {
-//            return false;
-//        }
         return $this->isAttemptNeeded;
-        //return array_any($this->executiveRequest->getChain(), fn($chain) => $this->ifChainIsAttemptNeeded($chain));
     }
 
     private function chainIsAttemptNeeded(object $object, mixed $transformed): bool
@@ -245,7 +241,7 @@ class Executor
 
             if ($object->isAttemptNeeded($transformed, $this) === true) {
 
-                $this->log->add(sprintf("%s::isAttemptNeeded requested another attempt to request %s",
+                $this->log->add(sprintf("%s wants another attempt to do request %s",
                     class_basename($object),
                     class_basename($this->clientRequest),
                 ));
@@ -340,7 +336,7 @@ class Executor
         return $this->clientRequest->getAttemptDelay();
     }
 
-    private function canAttempt(): bool
+    private function hasAttempts(): bool
     {
         return $this->remainingOfAttempts > 0;
     }

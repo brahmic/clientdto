@@ -18,10 +18,6 @@ use Validator;
 
 class ExecutiveRequest implements Arrayable
 {
-//    private int $attempts;
-//
-//    private int $remainingOfAttempts;
-
     private string $url;
 
     private int $timeout;
@@ -58,8 +54,6 @@ class ExecutiveRequest implements Arrayable
         $this->setBodyParams();
         $this->setChain();
 
-//        $this->attempts = $this->clientRequest->getAttempts();
-//        $this->remainingOfAttempts = $this->attempts;
         $this->url = $this->clientRequest->getUrl();
         $this->fullUrl = $this->getUrlWithQueryParams();
         $this->headers = $this->clientRequest->getClientDTO()->getHeaders();
@@ -69,14 +63,6 @@ class ExecutiveRequest implements Arrayable
 
     }
 
-    public static function validate(array $data, $model): void
-    {
-        $validator = Validator::make($data, $model::getValidationRules([]));
-
-        if ($validator->fails()) {
-            throw new ValidationException($validator);
-        }
-    }
 
     public function log(): Log
     {
