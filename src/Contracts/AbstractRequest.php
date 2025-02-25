@@ -4,7 +4,7 @@ namespace Brahmic\ClientDTO\Contracts;
 
 use Brahmic\ClientDTO\ClientDTO;
 use Brahmic\ClientDTO\Requests\ExecutiveRequest;
-use Brahmic\ClientDTO\Requests\Executor;
+use Brahmic\ClientDTO\Requests\ResponseResolver;
 use Brahmic\ClientDTO\Response\ClientResponse;
 use Brahmic\ClientDTO\Support\ClientResolver;
 use Brahmic\ClientDTO\Support\Log;
@@ -46,7 +46,7 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
 
     public function send(): ClientResponseInterface|ClientResponse
     {
-        return new Executor($this)->execute();
+        return new ResponseResolver($this)->execute();
     }
 
 //    private function createClientResponse(PromiseInterface|Response $response): ClientResponseInterface

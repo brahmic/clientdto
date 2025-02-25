@@ -16,7 +16,7 @@ use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Exceptions\CannotCreateData;
 use TypeError;
 
-class Executor
+class ResponseResolver
 {
     private int $attempts;
 
