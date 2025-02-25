@@ -52,9 +52,16 @@ class Executor
             $this->log->add('Executive created');
 
             do {
-                $response = $this->send();
-                dump($this->isAttemptNeeded());
-                dump($this->remainingOfAttempts);
+                $this->pauseIfNeed();
+
+                $this->decreaseAttempt();
+
+                $response = $this->executiveRequest->send();
+
+
+                $this->obtain($response);
+
+
 
             } while ($this->hasAttempts() && $this->isAttemptNeeded());
 
@@ -88,13 +95,8 @@ class Executor
     /**
      * @throws \Throwable
      */
-    private function send(): PromiseInterface|Response
+    private function obtain(Response $response): void
     {
-        $this->pauseIfNeed();
-
-        $this->decreaseAttempt();
-
-        $response = $this->executiveRequest->send();
 
         if ($response->successful()) {
 
@@ -112,7 +114,6 @@ class Executor
             $this->message = 'Неожиданный статус';
         }
 
-        return $response;
     }
 
 
@@ -122,7 +123,6 @@ class Executor
             class_basename($this->getClientRequest()),
             class_basename($response->status()),
         ));
-        //2xx
 
         if ($this->hasFile($response)) {
 
@@ -134,21 +134,24 @@ class Executor
 
             $this->log()->add('JSON received');;
 
-            $this->resolved = $this->resolveJson($json);
+            $this->resolved = $this->resolveDto($json);
 
         } else {
             $this->resolved = $response->body();
         }
 
-
     }
 
-    private function resolveJson(mixed $data): mixed
+    private function resolveDto(mixed $data): mixed
     {
         $transformed = $this->prepare($data);
+
         $class = $this->getClientRequest()::getDtoClass();
 
         if ($transformed && $class && !$this->isAttemptNeeded) {
+
+            $this->log()->add('DTO resolved!');
+
             return $class::from($transformed);
         }
 
@@ -158,6 +161,8 @@ class Executor
     private function prepare(mixed $data): mixed
     {
         $transformed = $data;
+
+        $this->log()->add('Preparing...');
 
         $this->isAttemptNeeded = false;
 
