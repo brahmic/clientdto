@@ -54,9 +54,7 @@ class ClientResolver
 
         $data = $resolver->getData($resourceOrRequestClass);
 
-        $clientClass = $data['client'];
-
-        return app($clientClass);
+        return app($data['client']);
     }
 
     private function getData(string $class): array

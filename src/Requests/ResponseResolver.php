@@ -33,6 +33,7 @@ class ResponseResolver
     private array $details = [];
 
     private ExecutiveRequest $executiveRequest;
+
     private bool $isAttemptNeeded;
 
     public function __construct(private readonly AbstractRequest $clientRequest)
@@ -51,13 +52,29 @@ class ResponseResolver
             $this->executiveRequest = new ExecutiveRequest($this->clientRequest);
 
             do {
+
                 $this->pauseIfNeed();
 
                 $this->decreaseAttempt();
 
                 $response = $this->executiveRequest->send();
 
-                $this->obtain($response);
+                if ($response->successful()) {
+
+                    $this->resolve($response);
+
+                } elseif ($response->clientError()) { //4xx
+
+                    $this->message = 'Ошибка клиента';
+
+                } elseif ($response->serverError()) {  //5xx
+
+                    $this->message = 'Сервер временно недоступен';
+
+                } else {
+                    $this->message = 'Неожиданный статус';
+                }
+
 
             } while ($this->hasAttempts() && $this->isAttemptNeeded());
 
@@ -83,34 +100,10 @@ class ResponseResolver
 
         $this->log()->add('Completed');
 
+        dump($this->resolved);
         dump($this->log->all());
 
         return $this->createClientResponse($response);
-    }
-
-
-    /**
-     * @throws \Throwable
-     */
-    private function obtain(Response $response): void
-    {
-
-        if ($response->successful()) {
-
-            $this->resolve($response);
-
-        } elseif ($response->clientError()) { //4xx
-
-            $this->message = 'Ошибка клиента';
-
-        } elseif ($response->serverError()) {  //5xx
-
-            $this->message = 'Ошибка сервера';
-
-        } else {
-            $this->message = 'Неожиданный статус';
-        }
-
     }
 
 
@@ -129,7 +122,7 @@ class ResponseResolver
 
         } elseif ($json = $this->tryToGetJson($response)) {
 
-            $this->log()->add('JSON received');;
+            $this->log()->add('JSON received');
 
             $this->resolved = $this->resolveDto($json);
 
@@ -153,13 +146,15 @@ class ResponseResolver
         $class = $this->getClientRequest()::getDtoClass();
 
         if ($transformed && $class && !$this->isAttemptNeeded) {
+dump($transformed);
+            $dto = $class::from($transformed);
 
-            $this->log()->add('DTO resolved!');
+            $this->log()->add("DTO `" . class_basename($dto) . "` resolved!");
 
-            return $class::from($transformed);
+            return $dto;
         }
 
-        return $data;
+        return $transformed;
     }
 
     private function prepare(mixed $data): mixed
@@ -172,9 +167,11 @@ class ResponseResolver
 
         foreach ($this->executiveRequest->getChain() as $object) {
 
+            $previous = $transformed;
+
             $transformed = $this->chainTransforming($object, $transformed);
 
-            if ($this->hasAttempts() && $this->isAttemptNeeded = $this->chainIsAttemptNeeded($object, $transformed)) {
+            if ($this->hasAttempts() && $this->isAttemptNeeded = $this->chainIsAttemptNeeded($object, $previous)) {
                 return $transformed;
             }
         }
@@ -184,59 +181,7 @@ class ResponseResolver
 
     private function chainTransforming(object $object, mixed $data): mixed
     {
-        if (method_exists($object, 'transforming')) {
-
-            return $object->transforming($data);
-        }
-
-        return $data;
-    }
-
-    private function transforming(mixed $data): mixed
-    {
-        $result = null;
-
-        foreach ($this->executiveRequest->getChain() as $object) {
-
-            if (method_exists($object, 'transforming')) {
-
-                try {
-
-                    $result = $object->transforming($data);
-
-                    $this->log()->add(sprintf("%s data transforming " . (is_object($data) ? class_basename($data) : gettype($data)) . " >> " . (is_object($result) ? class_basename($result) : gettype($result)), class_basename($object)));
-//
-//                    if ($result === false || $result === null) {
-//
-//                        $this->log()->add(sprintf("%s  transforming return null, process interrupted.", class_basename($object)));
-//                        return null;
-//                    }
-
-                    $data = $result;
-
-                } catch (TypeError $exception) {
-
-                    $this->message = "Ошибка при трансформации для " . (is_object($data) ? class_basename($data) : gettype($data));
-                    $this->details[] = $exception->getMessage();
-                    $this->status = 500;
-
-                    $this->log()->add("Transforming Process interrupted. {$exception->getMessage()}");
-                    return null;
-
-                } catch (CannotCreateData $exception) {
-
-                    $this->message = sprintf("Невозможно создать `%s`", class_basename($object));
-                    $this->details[] = $exception->getMessage();
-                    $this->status = 500;
-
-                    $this->log()->add(sprintf("Can't create %s", class_basename($object)));
-                    return null;
-
-                }
-            }
-        }
-
-        return $result ?? $data;
+        return method_exists($object, 'transforming') ? $object->transforming($data, $this->clientRequest) : $data;
     }
 
     private function isAttemptNeeded(): bool

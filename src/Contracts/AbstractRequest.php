@@ -78,16 +78,16 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
 
 
     /**
-     * @throws \Exception
      */
-    public static function getDtoClass(): string
+    public static function getDtoClass(): ?string
     {
         if (static::DTO) {
 
             return static::DTO;
         }
 
-        throw new Exception('Неизвестный тип запроса');
+        return null;
+        //throw new Exception('Неизвестный тип запроса');
     }
 
     public function resolveDtoClass(): string
