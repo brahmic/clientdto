@@ -57,4 +57,9 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
     {
         return response()->json($this->resolved, $this->status);
     }
+
+    public function resolved(): mixed
+    {
+        return $this->resolved;
+    }
 }

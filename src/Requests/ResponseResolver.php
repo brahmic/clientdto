@@ -88,7 +88,8 @@ class ResponseResolver
         } catch (CannotCreateData $cannotCreateData) {
 
             $this->message = "Не удалось создать объект {class} для " . $cannotCreateData->getMessage();
-            $this->log()->add('Failed to create final object');
+
+            $this->log()->add('Failed to create final object'.$cannotCreateData->getMessage());
 
         } catch (\Throwable $exception) {
 
@@ -100,7 +101,6 @@ class ResponseResolver
 
         $this->log()->add('Completed');
 
-        dump($this->resolved);
         dump($this->log->all());
 
         return $this->createClientResponse($response);
@@ -130,6 +130,8 @@ class ResponseResolver
             $this->resolved = $response->body();
         }
 
+
+        dump($this->resolved);
     }
 
     private function resolveFile(mixed $data): mixed
@@ -146,7 +148,7 @@ class ResponseResolver
         $class = $this->getClientRequest()::getDtoClass();
 
         if ($transformed && $class && !$this->isAttemptNeeded) {
-dump($transformed);
+
             $dto = $class::from($transformed);
 
             $this->log()->add("DTO `" . class_basename($dto) . "` resolved!");
@@ -167,11 +169,9 @@ dump($transformed);
 
         foreach ($this->executiveRequest->getChain() as $object) {
 
-            $previous = $transformed;
-
             $transformed = $this->chainTransforming($object, $transformed);
 
-            if ($this->hasAttempts() && $this->isAttemptNeeded = $this->chainIsAttemptNeeded($object, $previous)) {
+            if ($this->hasAttempts() && $this->isAttemptNeeded = $this->chainIsAttemptNeeded($object, $transformed)) {
                 return $transformed;
             }
         }
@@ -184,16 +184,11 @@ dump($transformed);
         return method_exists($object, 'transforming') ? $object->transforming($data, $this->clientRequest) : $data;
     }
 
-    private function isAttemptNeeded(): bool
-    {
-        return $this->isAttemptNeeded;
-    }
-
     private function chainIsAttemptNeeded(object $object, mixed $transformed): bool
     {
         if (method_exists($object, 'isAttemptNeeded')) {
 
-            if ($object->isAttemptNeeded($transformed, $this) === true) {
+            if ($object->isAttemptNeeded($transformed, $this->clientRequest) === true) {
 
                 $this->log->add(sprintf("%s wants another attempt to do request %s",
                     class_basename($object),
@@ -205,6 +200,11 @@ dump($transformed);
         }
 
         return false;
+    }
+
+    private function isAttemptNeeded(): bool
+    {
+        return $this->isAttemptNeeded;
     }
 
     private function decreaseAttempt(): void
