@@ -7,7 +7,6 @@ use Spatie\LaravelData\Data;
 interface ClientResponseInterface
 {
 
-    //public function isAttemptNeeded(): bool;
     public function resolved(): mixed;
 
     public function toArray(): array;

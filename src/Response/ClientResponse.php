@@ -12,22 +12,23 @@ use Illuminate\Http\Client\Response;
 
 class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
 {
-    private mixed $resolved = null;
 
     private bool $error = false;
 
-    private ?string $message = null;
 
-    private ?int $status = null;    //этот код будет использован для формирования ответа response
-
-    private array $details = [];
-
-    public function __construct(private readonly ExecutiveRequest $executiveRequest, public Response $response)
+    public function __construct(public readonly mixed              $resolved,
+                                public readonly ?string            $message,
+                                public readonly ?int               $status,
+                                private readonly array             $details,
+                                private readonly ?ExecutiveRequest $executiveRequest,
+                                public readonly ?Response          $response,
+    )
     {
 
     }
 
-    public function toArray(): array
+    public
+    function toArray(): array
     {
         return [
             'result' => $this->resolved,
@@ -48,17 +49,20 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
         ];
     }
 
-    private function log(): Log
+    private
+    function log(): Log
     {
         return $this->executiveRequest->log();
     }
 
-    public function toResponse($request): \Illuminate\Http\JsonResponse|\Symfony\Component\HttpFoundation\Response
+    public
+    function toResponse($request): \Illuminate\Http\JsonResponse|\Symfony\Component\HttpFoundation\Response
     {
         return response()->json($this->resolved, $this->status);
     }
 
-    public function resolved(): mixed
+    public
+    function resolved(): mixed
     {
         return $this->resolved;
     }

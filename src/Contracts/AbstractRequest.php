@@ -3,19 +3,14 @@
 namespace Brahmic\ClientDTO\Contracts;
 
 use Brahmic\ClientDTO\ClientDTO;
-use Brahmic\ClientDTO\Requests\ExecutiveRequest;
 use Brahmic\ClientDTO\Requests\ResponseResolver;
 use Brahmic\ClientDTO\Response\ClientResponse;
 use Brahmic\ClientDTO\Support\ClientResolver;
-use Brahmic\ClientDTO\Support\Log;
 use Brahmic\ClientDTO\Support\PropertyContext;
 use Brahmic\ClientDTO\Support\RequestHelper;
 use Brahmic\ClientDTO\Traits\BodyFormat;
 use Brahmic\ClientDTO\Traits\QueryParams;
 use Brahmic\ClientDTO\Traits\Timeout;
-use Exception;
-use GuzzleHttp\Promise\PromiseInterface;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Spatie\LaravelData\Data;
@@ -49,34 +44,6 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
         return new ResponseResolver($this)->execute();
     }
 
-//    private function createClientResponse(PromiseInterface|Response $response): ClientResponseInterface
-//    {
-//        $responseClass = $this->getClientDTO()->getResponseClass();
-//
-//        return new $responseClass($this, $response);
-//    }
-//
-//    /**
-//     * Определяет нужна ли дополнительная попытка
-//     * Default behavior
-//     * @return bool
-//     */
-//    public function conditionOfAttempt(): bool
-//    {
-//        return false;
-//    }
-//
-//    /**
-//     * Определяет условие, при котором задача по получению данных выполнена.
-//     * Вызывается только для запросов 2xx.
-//     * @return bool
-//     */
-//    public function conditionIfResolved(): bool
-//    {
-//        return false;
-//    }
-
-
     /**
      */
     public static function getDtoClass(): ?string
@@ -87,7 +54,6 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
         }
 
         return null;
-        //throw new Exception('Неизвестный тип запроса');
     }
 
     public function resolveDtoClass(): string
@@ -124,11 +90,6 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
     {
         return static::NAME;
     }
-
-//    public function validator(): ClientDTO
-//    {
-//        return $this->getClientDTO()->validator();
-//    }
 
     public function getClientDTO(): ClientDTO
     {

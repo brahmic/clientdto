@@ -5,10 +5,13 @@ namespace Brahmic\ClientDTO\Requests;
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientRequestInterface;
 use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
+use Brahmic\ClientDTO\Exceptions\AttemptNeededException;
+use Brahmic\ClientDTO\Exceptions\CreateDtoValidationException;
 use Brahmic\ClientDTO\Response\ClientResponse;
 use Brahmic\ClientDTO\Support\Log;
 use Brahmic\ClientDTO\Support\MimeTypes;
 use GuzzleHttp\Promise\PromiseInterface;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
@@ -28,13 +31,13 @@ class ResponseResolver
 
     private Log $log;
 
-    private ?int $status = null;
+    private ?int $statusCode = null;
 
     private array $details = [];
 
-    private ExecutiveRequest $executiveRequest;
+    private ?ExecutiveRequest $executiveRequest = null;
 
-    private bool $isAttemptNeeded;
+    private bool $isAttemptNeeded = false;
 
     public function __construct(private readonly AbstractRequest $clientRequest)
     {
@@ -47,56 +50,39 @@ class ResponseResolver
 
     public function execute(): ClientResponseInterface|ClientResponse
     {
+        $response = null;
+
         try {
 
             $this->executiveRequest = new ExecutiveRequest($this->clientRequest);
 
-            do {
+            $response = $this->sendRequest();
 
-                $this->pauseIfNeed();
+        } catch (CreateDtoValidationException $exception) {
 
-                $this->decreaseAttempt();
-
-                $response = $this->executiveRequest->send();
-
-                if ($response->successful()) {
-
-                    $this->resolve($response);
-
-                } elseif ($response->clientError()) { //4xx
-
-                    $this->message = 'Ошибка клиента';
-
-                } elseif ($response->serverError()) {  //5xx
-
-                    $this->message = 'Сервер временно недоступен';
-
-                } else {
-                    $this->message = 'Неожиданный статус';
-                }
-
-
-            } while ($this->hasAttempts() && $this->isAttemptNeeded());
-
+            $this->statusCode = 400;
+            $this->message = "The data received does not correspond to the declaration of {$exception->getClass()}";
+            $this->details = $exception->validator->errors()->all();
 
         } catch (ValidationException $exception) {
 
-            dump($this->log->all());
-            dump($exception->getMessage());
-            dd($exception->validator->errors()->all());
+            $this->statusCode = 400;
+            $this->message = $exception->getMessage();
+            $this->details = $exception->validator->errors()->all();
 
         } catch (CannotCreateData $cannotCreateData) {
 
-            $this->message = "Не удалось создать объект {class} для " . $cannotCreateData->getMessage();
+            $this->message = "Can't create object {class} " . $cannotCreateData->getMessage();
+            $this->statusCode = 500;
 
-            $this->log()->add('Failed to create final object'.$cannotCreateData->getMessage());
+            $this->log()->add('Failed to create object' . $cannotCreateData->getMessage());
 
         } catch (\Throwable $exception) {
 
-            // todo ошибка в коде непредвиденная
-            throw $exception;
-            dump('Throwable $exception');
-            dd($exception->getMessage());
+            $this->message = $exception->getMessage();
+            $this->statusCode = $exception->getCode();
+
+//            throw $exception;
         }
 
         $this->log()->add('Completed');
@@ -104,6 +90,52 @@ class ResponseResolver
         dump($this->log->all());
 
         return $this->createClientResponse($response);
+
+
+    }
+
+    /**
+     * @throws RequestException
+     */
+    public function sendRequest(): PromiseInterface|Response
+    {
+        $this->isAttemptNeeded = false;
+
+        $response = $this->executiveRequest->send();
+
+        $response->throwIfClientError()->throwIfServerError();
+
+        $this->pauseIfNeed();
+
+        $this->decreaseAttempt();
+
+        if ($response->successful()) {
+
+            try {
+
+                $this->resolve($response);
+
+                $this->statusCode = 200;
+                $this->message = 'Successful';
+
+            } catch (AttemptNeededException $exception) {
+
+                $this->isAttemptNeeded = true;
+
+                $this->statusCode = 202;
+                $this->message = 'Wait for response';
+
+                if ($this->hasAttempts()) {
+                    $response = $this->sendRequest();
+                }
+            }
+
+        } else {
+            $this->statusCode = 500;
+            $this->message = 'Unknown response status';
+        }
+
+        return $response;
     }
 
 
@@ -129,9 +161,6 @@ class ResponseResolver
         } else {
             $this->resolved = $response->body();
         }
-
-
-        dump($this->resolved);
     }
 
     private function resolveFile(mixed $data): mixed
@@ -147,9 +176,17 @@ class ResponseResolver
 
         $class = $this->getClientRequest()::getDtoClass();
 
-        if ($transformed && $class && !$this->isAttemptNeeded) {
+        if ($transformed && $class) {
 
-            $dto = $class::from($transformed);
+            try {
+
+                $dto = $class::validateAndCreate($transformed);
+
+            } catch (ValidationException $exception) {
+
+                throw new CreateDtoValidationException($exception->validator)->setClass($class);
+
+            }
 
             $this->log()->add("DTO `" . class_basename($dto) . "` resolved!");
 
@@ -159,52 +196,31 @@ class ResponseResolver
         return $transformed;
     }
 
+
     private function prepare(mixed $data): mixed
     {
         $transformed = $data;
 
         $this->log()->add('Preparing...');
 
-        $this->isAttemptNeeded = false;
-
         foreach ($this->executiveRequest->getChain() as $object) {
 
             $transformed = $this->chainTransforming($object, $transformed);
 
-            if ($this->hasAttempts() && $this->isAttemptNeeded = $this->chainIsAttemptNeeded($object, $transformed)) {
-                return $transformed;
-            }
+            $this->validation($object, $transformed);
         }
 
         return $transformed;
     }
 
+    private function validation(object $object, mixed $data): mixed
+    {
+        return method_exists($object, 'validation') ? $object->validation($data, $this->clientRequest) : $data;
+    }
+
     private function chainTransforming(object $object, mixed $data): mixed
     {
         return method_exists($object, 'transforming') ? $object->transforming($data, $this->clientRequest) : $data;
-    }
-
-    private function chainIsAttemptNeeded(object $object, mixed $transformed): bool
-    {
-        if (method_exists($object, 'isAttemptNeeded')) {
-
-            if ($object->isAttemptNeeded($transformed, $this->clientRequest) === true) {
-
-                $this->log->add(sprintf("%s wants another attempt to do request %s",
-                    class_basename($object),
-                    class_basename($this->clientRequest),
-                ));
-
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function isAttemptNeeded(): bool
-    {
-        return $this->isAttemptNeeded;
     }
 
     private function decreaseAttempt(): void
@@ -224,11 +240,17 @@ class ResponseResolver
         throw_if($this->remainingOfAttempts < 0, new RuntimeException("Unforeseen call. Attempts out of range."));
     }
 
-    private function createClientResponse(PromiseInterface|Response $response): ClientResponseInterface
+    private function createClientResponse(PromiseInterface|Response|null $response = null): ClientResponseInterface
     {
         $responseClass = $this->clientRequest->getClientDTO()->getResponseClass();
 
-        return new $responseClass($this->executiveRequest, $response);
+        return new $responseClass(
+            $this->resolved,
+            $this->message,
+            $this->statusCode,
+            $this->details,
+            $this->executiveRequest,
+            $response);
     }
 
     public function isResolved(): bool
