@@ -119,20 +119,20 @@ class ResponseResolver
 
     private function resolve(Response $response): void
     {
-        $this->finish()->add(sprintf("Request `%s` is successful, code: %s",
+        $this->log->add(sprintf("Request `%s` is successful, code: %s",
             class_basename($this->getClientRequest()),
             class_basename($response->status()),
         ));
 
         if ($this->hasFile($response)) {
 
-            $this->finish()->add('File received');
+            $this->log->add('File received');
 
             $this->resolved = $this->resolveFile($response);
 
         } elseif ($json = $this->tryToGetJson($response)) {
 
-            $this->finish()->add('JSON received');
+            $this->log->add('JSON received');
 
             $this->resolved = $this->resolveDto($json);
 
@@ -164,7 +164,7 @@ class ResponseResolver
 
             }
 
-            $this->finish()->add("DTO `" . class_basename($dto) . "` resolved!");
+            $this->log->add("DTO `" . class_basename($dto) . "` resolved!");
 
             return $dto;
         }
@@ -176,7 +176,7 @@ class ResponseResolver
     {
         $current = $data;
 
-        $this->finish()->add('Preparing...');
+        $this->log->add('Preparing...');
 
         foreach ($this->executiveRequest->getChain() as $object) {
 
@@ -305,7 +305,7 @@ class ResponseResolver
 
     protected function handleRequestException(RequestException $exception): void
     {
-        $this->setResponseStatus(HttpResponse::HTTP_BAD_REQUEST, 'Request error, please contact the service administrator');
+        $this->setResponseStatus(HttpResponse::HTTP_BAD_REQUEST, 'Bad request, please contact the service administrator');
 
         $json = $this->tryToGetJson($exception->response);
 
