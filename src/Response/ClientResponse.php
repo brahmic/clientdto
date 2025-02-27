@@ -37,7 +37,7 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
             'details' => $this->details,
             'debug' => [
                 'url' => $this->executiveRequest?->getUrlWithQueryParams(),
-                'clientRequest' => $this->executiveRequest?->getClientRequest()->toArray(),
+                'clientRequest' => $this->executiveRequest?->getClientRequest(),
                 'executiveRequest' => $this->executiveRequest,
                 'response' => $this->response,
                 'log' => $this->log->all(),
