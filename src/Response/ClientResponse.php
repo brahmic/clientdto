@@ -12,9 +12,7 @@ use Illuminate\Http\Client\Response;
 
 class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
 {
-
-    private bool $error = false;
-
+    public readonly bool $error;
 
     public function __construct(public readonly mixed              $resolved,
                                 public readonly ?string            $message,
@@ -26,12 +24,13 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
     )
     {
 
+        $this->error = is_null($this->resolved);
     }
 
     public function toArray(): array
     {
         return [
-            'result' => $this->resolved,
+            'result' => $this->error,
             'error' => is_null($this->resolved),
             'message' => $this->message,
             'status' => $this->status,
