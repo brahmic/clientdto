@@ -124,20 +124,25 @@ class ResponseResolver
             class_basename($response->status()),
         ));
 
+
         if ($this->hasFile($response)) {
 
             $this->log->add('File received');
 
             $this->resolved = $this->resolveFile($response);
 
-        } elseif ($json = $this->tryToGetJson($response)) {
-
-            $this->log->add('JSON received');
-
-            $this->resolved = $this->resolveDto($json);
-
         } else {
-            $this->resolved = $response->body();
+            $json = $this->tryToGetJson($response);
+
+            if ($json !== null) {
+
+                $this->log->add('JSON received');
+
+                $this->resolved = $this->resolveDto($json);
+
+            } else {
+                $this->resolved = $response->body();
+            }
         }
     }
 
@@ -218,8 +223,8 @@ class ResponseResolver
             return $response->json();
         }
 
-        if (str_contains($response->header('Content-Type'), 'text/html') && $json = $response->json()) {
-            return $json;
+        if (str_contains($response->header('Content-Type'), 'text/html') && !is_null($response->json())) {
+            return $response->json();
         }
 
         return null;
