@@ -11,6 +11,7 @@ use Brahmic\ClientDTO\Response\ClientResponse;
 use Brahmic\ClientDTO\Support\Log;
 use Brahmic\ClientDTO\Support\MimeTypes;
 use GuzzleHttp\Promise\PromiseInterface;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Validation\ValidationException;
@@ -54,24 +55,27 @@ class ResponseResolver
      */
     public function execute(): ClientResponseInterface|ClientResponse
     {
-        $response = null;
 
         try {
             $this->executiveRequest = new ExecutiveRequest($this->clientRequest);
-            $response = $this->sendRequest();
+            $this->sendRequest();
         } catch (CreateDtoValidationException $exception) {
             $this->handleCreateDtoValidationException($exception);
         } catch (ValidationException $exception) {
             $this->handleValidationException($exception);
+        } catch (ConnectionException $exception) {
+            $this->handleConnectionException($exception);
+        } catch (RequestException $exception) {
+            $this->handleRequestException($exception);
         } catch (CannotCreateData $exception) {
             $this->handleCannotCreateDataException($exception);
         } catch (Throwable $exception) {
             $this->handleGenericException($exception);
         }
 
-        $this->logExecution();
+        $this->finish();
 
-        return $this->createClientResponse($response);
+        return $this->createClientResponse($this->response);
     }
 
     private function createClientResponse(PromiseInterface|Response|null $response = null): ClientResponseInterface
@@ -115,20 +119,20 @@ class ResponseResolver
 
     private function resolve(Response $response): void
     {
-        $this->log()->add(sprintf("Request `%s` is successful, code: %s",
+        $this->finish()->add(sprintf("Request `%s` is successful, code: %s",
             class_basename($this->getClientRequest()),
             class_basename($response->status()),
         ));
 
         if ($this->hasFile($response)) {
 
-            $this->log()->add('File received');
+            $this->finish()->add('File received');
 
             $this->resolved = $this->resolveFile($response);
 
         } elseif ($json = $this->tryToGetJson($response)) {
 
-            $this->log()->add('JSON received');
+            $this->finish()->add('JSON received');
 
             $this->resolved = $this->resolveDto($json);
 
@@ -160,7 +164,7 @@ class ResponseResolver
 
             }
 
-            $this->log()->add("DTO `" . class_basename($dto) . "` resolved!");
+            $this->finish()->add("DTO `" . class_basename($dto) . "` resolved!");
 
             return $dto;
         }
@@ -172,7 +176,7 @@ class ResponseResolver
     {
         $current = $data;
 
-        $this->log()->add('Preparing...');
+        $this->finish()->add('Preparing...');
 
         foreach ($this->executiveRequest->getChain() as $object) {
 
@@ -271,41 +275,55 @@ class ResponseResolver
         return $this->remainingOfAttempts;
     }
 
-    public function log(): Log
-    {
-        return $this->log;
-    }
-
     protected function handleCreateDtoValidationException(CreateDtoValidationException $exception): void
     {
-        $message = "The data received does not correspond to the declaration of {$exception->getClass()}";
-        $this->statusCode = HttpResponse::HTTP_INTERNAL_SERVER_ERROR;
-
         if (app()->hasDebugModeEnabled()) {
-            $this->message = $message;
+            $message = "The data received does not correspond to the declaration of {$exception->getClass()}";
             $this->details = $exception->validator->errors()->all();
         } else {
-            $this->message = 'Data error, please contact the service administrator';
+            $message = "Data error, please contact the service administrator";
         }
+
+        $this->setResponseStatus(HttpResponse::HTTP_INTERNAL_SERVER_ERROR, $message);
     }
 
     protected function handleValidationException(ValidationException $exception): void
     {
-        $this->statusCode = HttpResponse::HTTP_BAD_REQUEST;
-        $this->message = $exception->getMessage();
+        $this->setResponseStatus(HttpResponse::HTTP_BAD_REQUEST, $exception->getMessage());
+
         $this->details = $exception->validator->errors()->all();
+    }
+
+    protected function handleConnectionException(ConnectionException $exception): void
+    {
+        $this->setResponseStatus(HttpResponse::HTTP_BAD_GATEWAY, 'The data server is not responding');
+
+        if (app()->hasDebugModeEnabled() && app()->isLocal()) {
+            $this->details = [$exception->getMessage()];
+        }
+    }
+
+    protected function handleRequestException(RequestException $exception): void
+    {
+        $this->setResponseStatus(HttpResponse::HTTP_BAD_REQUEST, 'Request error, please contact the service administrator');
+
+        $json = $this->tryToGetJson($exception->response);
+
+        $this->response = $exception->response;
+
+        if (app()->hasDebugModeEnabled()) {
+            $this->details = is_array($json) ? $json : [$exception->response->body()];
+        }
     }
 
     protected function handleCannotCreateDataException(CannotCreateData $exception): void
     {
-        $this->message = "Can't create object {class} " . $exception->getMessage();
-        $this->statusCode = HttpResponse::HTTP_INTERNAL_SERVER_ERROR;
+        $this->setResponseStatus(HttpResponse::HTTP_INTERNAL_SERVER_ERROR, "Can't create object {class} " . $exception->getMessage());
     }
 
     protected function handleGenericException(Throwable $exception): void
     {
-        $this->message = $exception->getMessage();
-        $this->statusCode = $exception->getCode();
+        $this->setResponseStatus($exception->getCode(), $exception->getMessage());
 
         if (app()->hasDebugModeEnabled()) {
             throw $exception;
@@ -326,6 +344,11 @@ class ResponseResolver
         }
     }
 
+    protected function handleUnsuccessfulResponse(): void
+    {
+        $this->setResponseStatus(HttpResponse::HTTP_INTERNAL_SERVER_ERROR, 'Unknown response status');
+    }
+
     /**
      * @throws RequestException
      */
@@ -340,18 +363,13 @@ class ResponseResolver
         }
     }
 
-    protected function handleUnsuccessfulResponse(): void
-    {
-        $this->setResponseStatus(HttpResponse::HTTP_INTERNAL_SERVER_ERROR, 'Unknown response status');
-    }
-
     protected function setResponseStatus(int $statusCode, string $message): void
     {
         $this->statusCode = $statusCode;
         $this->message = $message;
     }
 
-    protected function logExecution(): void
+    protected function finish(): void
     {
         $this->log->add($this->message);
         $this->log->add('Finish');

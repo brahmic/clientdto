@@ -12,15 +12,15 @@ use Illuminate\Http\Client\Response;
 
 class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
 {
-    public readonly bool $error;
+    private readonly bool $error;
 
-    public function __construct(public readonly mixed              $resolved,
-                                public readonly ?string            $message,
-                                public readonly ?int               $status,
+    public function __construct(private readonly mixed              $resolved,
+                                private readonly ?string            $message,
+                                private readonly ?int               $status,
                                 private readonly array             $details,
                                 private readonly ?ExecutiveRequest $executiveRequest,
-                                public readonly ?Response          $response,
-                                public readonly ?Log               $log,
+                                private readonly ?Response          $response,
+                                private readonly ?Log               $log,
     )
     {
 
