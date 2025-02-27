@@ -14,10 +14,9 @@ use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Validation\ValidationException;
-use RuntimeException;
-use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Exceptions\CannotCreateData;
-use TypeError;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
+use Throwable;
 
 class ResponseResolver
 {
@@ -36,6 +35,7 @@ class ResponseResolver
     private array $details = [];
 
     private ?ExecutiveRequest $executiveRequest = null;
+    private ?Response $response = null;
 
     private bool $isAttemptNeeded = false;
 
@@ -45,53 +45,49 @@ class ResponseResolver
         $this->remainingOfAttempts = $this->getAttempts();
         $this->attempts = $this->getAttempts();
 
-        $this->log->add('Execute request: ' . class_basename($clientRequest));
+        $this->log->add(sprintf("Execute `%s` request", class_basename($clientRequest)));
     }
 
+    /**
+     * @return ClientResponseInterface|ClientResponse
+     * @throws Throwable
+     */
     public function execute(): ClientResponseInterface|ClientResponse
     {
         $response = null;
 
         try {
-
             $this->executiveRequest = new ExecutiveRequest($this->clientRequest);
-
             $response = $this->sendRequest();
-
         } catch (CreateDtoValidationException $exception) {
-
-            $this->statusCode = 400;
-            $this->message = "The data received does not correspond to the declaration of {$exception->getClass()}";
-            $this->details = $exception->validator->errors()->all();
-
+            $this->handleCreateDtoValidationException($exception);
         } catch (ValidationException $exception) {
-
-            $this->statusCode = 400;
-            $this->message = $exception->getMessage();
-            $this->details = $exception->validator->errors()->all();
-
-        } catch (CannotCreateData $cannotCreateData) {
-
-            $this->message = "Can't create object {class} " . $cannotCreateData->getMessage();
-            $this->statusCode = 500;
-
-            $this->log()->add('Failed to create object' . $cannotCreateData->getMessage());
-
-        } catch (\Throwable $exception) {
-
-            $this->message = $exception->getMessage();
-            $this->statusCode = $exception->getCode();
-
-//            throw $exception;
+            $this->handleValidationException($exception);
+        } catch (CannotCreateData $exception) {
+            $this->handleCannotCreateDataException($exception);
+        } catch (Throwable $exception) {
+            $this->handleGenericException($exception);
         }
 
-        $this->log()->add('Completed');
-
-        dump($this->log->all());
+        $this->logExecution();
 
         return $this->createClientResponse($response);
+    }
 
+    private function createClientResponse(PromiseInterface|Response|null $response = null): ClientResponseInterface
+    {
+        $responseClass = $this->clientRequest->getClientDTO()->getResponseClass();
 
+        return new $responseClass(
+            $this->resolved,
+            $this->message,
+            $this->statusCode,
+            $this->details,
+            $this->executiveRequest,
+            $response,
+            $this->log,
+            $this->isAttemptNeeded,
+        );
     }
 
     /**
@@ -101,47 +97,25 @@ class ResponseResolver
     {
         $this->isAttemptNeeded = false;
 
-        $response = $this->executiveRequest->send();
+        $this->response = $this->executiveRequest->send();
 
-        $response->throwIfClientError()->throwIfServerError();
+        $this->response->throwIfClientError()->throwIfServerError();
 
-        $this->pauseIfNeed();
+        $this->nextAttempt();
 
-        $this->decreaseAttempt();
-
-        if ($response->successful()) {
-
-            try {
-
-                $this->resolve($response);
-
-                $this->statusCode = 200;
-                $this->message = 'Successful';
-
-            } catch (AttemptNeededException $exception) {
-
-                $this->isAttemptNeeded = true;
-
-                $this->statusCode = 202;
-                $this->message = 'Wait for response';
-
-                if ($this->hasAttempts()) {
-                    $response = $this->sendRequest();
-                }
-            }
-
+        if ($this->response->successful()) {
+            $this->handleSuccessfulResponse();
         } else {
-            $this->statusCode = 500;
-            $this->message = 'Unknown response status';
+            $this->handleUnsuccessfulResponse();
         }
 
-        return $response;
+        return $this->response;
     }
 
 
     private function resolve(Response $response): void
     {
-        $this->log()->add(sprintf("Request %s is successful, code: %s",
+        $this->log()->add(sprintf("Request `%s` is successful, code: %s",
             class_basename($this->getClientRequest()),
             class_basename($response->status()),
         ));
@@ -150,7 +124,7 @@ class ResponseResolver
 
             $this->log()->add('File received');
 
-            //$this->resolved = //$this->resolveFile($xxxxxxx); вернуть файл типа FILE
+            $this->resolved = $this->resolveFile($response);
 
         } elseif ($json = $this->tryToGetJson($response)) {
 
@@ -166,8 +140,6 @@ class ResponseResolver
     private function resolveFile(mixed $data): mixed
     {
         //файл, который надо скачать, распаковать и прочее
-        //файл, который файл
-
     }
 
     private function resolveDto(mixed $data): mixed
@@ -184,7 +156,7 @@ class ResponseResolver
 
             } catch (ValidationException $exception) {
 
-                throw new CreateDtoValidationException($exception->validator)->setClass($class);
+                throw new CreateDtoValidationException($exception->validator, $this->response)->setClass($class);
 
             }
 
@@ -196,66 +168,44 @@ class ResponseResolver
         return $transformed;
     }
 
-
     private function prepare(mixed $data): mixed
     {
-        $transformed = $data;
+        $current = $data;
 
         $this->log()->add('Preparing...');
 
         foreach ($this->executiveRequest->getChain() as $object) {
 
-            $transformed = $this->chainTransforming($object, $transformed);
+            $current = $this->handle($object, $current);
 
-            $this->validation($object, $transformed);
+            $this->validation($object, $current);
         }
 
-        return $transformed;
+        return $current;
     }
 
-    private function validation(object $object, mixed $data): mixed
+    private function validation(object $object, mixed $data): void
     {
-        return method_exists($object, 'validation') ? $object->validation($data, $this->clientRequest) : $data;
+        if (method_exists($object, 'validation')) {
+            $object->validation($data, $this->clientRequest);
+        }
     }
 
-    private function chainTransforming(object $object, mixed $data): mixed
+    private function handle(object $object, mixed $data): mixed
     {
-        return method_exists($object, 'transforming') ? $object->transforming($data, $this->clientRequest) : $data;
+        return method_exists($object, 'handle') ? $object->handle($data, $this->clientRequest) : $data;
     }
 
-    private function decreaseAttempt(): void
-    {
-        $this->log->add("Attempt {$this->attempt()}");
-
-        $this->remainingOfAttempts -= 1;
-    }
-
-    private function pauseIfNeed(): void
+    private function nextAttempt(): void
     {
         if ($this->remainingOfAttempts() !== $this->getAttempts()) {
             $this->log->add("Wait {$this->getAttemptDelay()}ms...");
             usleep($this->getAttemptDelay() * 1000);
         }
 
-        throw_if($this->remainingOfAttempts < 0, new RuntimeException("Unforeseen call. Attempts out of range."));
-    }
+        $this->log->add("Attempt {$this->attempt()}");
 
-    private function createClientResponse(PromiseInterface|Response|null $response = null): ClientResponseInterface
-    {
-        $responseClass = $this->clientRequest->getClientDTO()->getResponseClass();
-
-        return new $responseClass(
-            $this->resolved,
-            $this->message,
-            $this->statusCode,
-            $this->details,
-            $this->executiveRequest,
-            $response);
-    }
-
-    public function isResolved(): bool
-    {
-        return is_null($this->resolved);
+        $this->remainingOfAttempts -= 1;
     }
 
     private function tryToGetJson(Response $response): mixed
@@ -324,5 +274,86 @@ class ResponseResolver
     public function log(): Log
     {
         return $this->log;
+    }
+
+    protected function handleCreateDtoValidationException(CreateDtoValidationException $exception): void
+    {
+        $message = "The data received does not correspond to the declaration of {$exception->getClass()}";
+        $this->statusCode = HttpResponse::HTTP_INTERNAL_SERVER_ERROR;
+
+        if (app()->hasDebugModeEnabled()) {
+            $this->message = $message;
+            $this->details = $exception->validator->errors()->all();
+        } else {
+            $this->message = 'Data error, please contact the service administrator';
+        }
+    }
+
+    protected function handleValidationException(ValidationException $exception): void
+    {
+        $this->statusCode = HttpResponse::HTTP_BAD_REQUEST;
+        $this->message = $exception->getMessage();
+        $this->details = $exception->validator->errors()->all();
+    }
+
+    protected function handleCannotCreateDataException(CannotCreateData $exception): void
+    {
+        $this->message = "Can't create object {class} " . $exception->getMessage();
+        $this->statusCode = HttpResponse::HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    protected function handleGenericException(Throwable $exception): void
+    {
+        $this->message = $exception->getMessage();
+        $this->statusCode = $exception->getCode();
+
+        if (app()->hasDebugModeEnabled()) {
+            throw $exception;
+        }
+    }
+
+    /**
+     * @return void
+     * @throws RequestException
+     */
+    protected function handleSuccessfulResponse(): void
+    {
+        try {
+            $this->resolve($this->response);
+            $this->setResponseStatus(HttpResponse::HTTP_OK, 'Successful');
+        } catch (AttemptNeededException $exception) {
+            $this->handleAttemptNeededException($exception);
+        }
+    }
+
+    /**
+     * @throws RequestException
+     */
+    protected function handleAttemptNeededException(AttemptNeededException $exception): void
+    {
+        $this->isAttemptNeeded = true;
+
+        $this->setResponseStatus(HttpResponse::HTTP_ACCEPTED, $exception->getMessage());
+
+        if ($this->hasAttempts()) {
+            $this->response = $this->sendRequest();
+        }
+    }
+
+    protected function handleUnsuccessfulResponse(): void
+    {
+        $this->setResponseStatus(HttpResponse::HTTP_INTERNAL_SERVER_ERROR, 'Unknown response status');
+    }
+
+    protected function setResponseStatus(int $statusCode, string $message): void
+    {
+        $this->statusCode = $statusCode;
+        $this->message = $message;
+    }
+
+    protected function logExecution(): void
+    {
+        $this->log->add($this->message);
+        $this->log->add('Finish');
     }
 }

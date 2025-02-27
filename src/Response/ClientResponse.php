@@ -22,13 +22,13 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
                                 private readonly array             $details,
                                 private readonly ?ExecutiveRequest $executiveRequest,
                                 public readonly ?Response          $response,
+                                public readonly ?Log               $log,
     )
     {
 
     }
 
-    public
-    function toArray(): array
+    public function toArray(): array
     {
         return [
             'result' => $this->resolved,
@@ -37,32 +37,21 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
             'status' => $this->status,
             'details' => $this->details,
             'debug' => [
-                'clientRequest' => $this->executiveRequest->getClientRequest()->toArray(),
+                'url' => $this->executiveRequest?->getUrlWithQueryParams(),
+                'clientRequest' => $this->executiveRequest?->getClientRequest()->toArray(),
                 'executiveRequest' => $this->executiveRequest,
-                'url' => $this->executiveRequest->getUrlWithQueryParams(),
-                'response' => [
-                    'status' => $this->response->status(),
-                    'body' => $this->response->body(),
-                ],
-                'log' => $this->log()->all(),
+                'response' => $this->response,
+                'log' => $this->log->all(),
             ]
         ];
     }
 
-    private
-    function log(): Log
-    {
-        return $this->executiveRequest->log();
-    }
-
-    public
-    function toResponse($request): \Illuminate\Http\JsonResponse|\Symfony\Component\HttpFoundation\Response
+    public function toResponse($request): \Illuminate\Http\JsonResponse|\Symfony\Component\HttpFoundation\Response
     {
         return response()->json($this->resolved, $this->status);
     }
 
-    public
-    function resolved(): mixed
+    public function resolved(): mixed
     {
         return $this->resolved;
     }

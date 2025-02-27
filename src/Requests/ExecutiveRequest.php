@@ -25,6 +25,7 @@ class ExecutiveRequest implements Arrayable
     private array $cookies = [];
 
     private array $body = [];
+
     private array $files = [];
 
     private array $chain = [];
@@ -32,8 +33,6 @@ class ExecutiveRequest implements Arrayable
     private string $bodyFormat; // 'json', 'form', 'multipart'
 
     private string $fullUrl;
-
-    private Log $log;
 
     private array $types = [
         GetRequest::class => 'get',
@@ -43,8 +42,6 @@ class ExecutiveRequest implements Arrayable
     public function __construct(readonly private AbstractRequest $clientRequest)
     {
         $clientRequest::validate($clientRequest->toArray());
-
-        $this->log = new Log();
 
         $this->setQueryParams();
         $this->setBodyParams();
@@ -57,12 +54,6 @@ class ExecutiveRequest implements Arrayable
         $this->timeout = $this->clientRequest->getTimeout() ?: $this->clientRequest->getClientDTO()->getTimeout();
 
 
-    }
-
-
-    public function log(): Log
-    {
-        return $this->log;
     }
 
     /**
@@ -153,10 +144,29 @@ class ExecutiveRequest implements Arrayable
 
         $result = preg_replace_callback('/\{(\w+)\}/', function ($matches) {
             $property = $matches[1];
-            return property_exists($this->getClientRequest(), $property) ? $this->getClientRequest()->$property : $matches[0];
+            if (property_exists($this->getClientRequest(), $property)) {
+                $value = $this->getClientRequest()->$property;
+
+                // Если значение является Enum, преобразуем его в строку
+                if ($value instanceof \UnitEnum) {
+                    return $value instanceof \BackedEnum ? $value->value : $value->name;
+                }
+
+                return $value;
+            }
+            return $matches[0];
         }, $url);
 
         return $result . RequestHelper::getInstance()->makeQueryString($this->queryParams);
+//
+//        $url = $this->url;
+//
+//        $result = preg_replace_callback('/\{(\w+)\}/', function ($matches) {
+//            $property = $matches[1];
+//            return property_exists($this->getClientRequest(), $property) ? $this->getClientRequest()->$property : $matches[0];
+//        }, $url);
+//
+//        return $result . RequestHelper::getInstance()->makeQueryString($this->queryParams);
     }
 
     private function getMethod(AbstractRequest $abstractRequest): string
