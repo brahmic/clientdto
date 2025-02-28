@@ -3,6 +3,8 @@
 namespace Brahmic\ClientDTO\Contracts;
 
 use Brahmic\ClientDTO\ClientDTO;
+use Brahmic\ClientDTO\Requests\GetRequest;
+use Brahmic\ClientDTO\Requests\PostRequest;
 use Brahmic\ClientDTO\Requests\ResponseResolver;
 use Brahmic\ClientDTO\Response\ClientResponse;
 use Brahmic\ClientDTO\Support\ClientResolver;
@@ -116,9 +118,9 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
         return RequestHelper::getInstance()->fill($this, $data, $filter);
     }
 
-    public static function validate(array|Arrayable $payload = []): array|Arrayable
+    public function validateRequest(): array|Arrayable
     {
-        $validator = Validator::make($payload, static::getValidationRules([]));
+        $validator = Validator::make($this->toArray(), static::getValidationRules([]));
 
         if ($validator->fails()) {
             throw new ValidationException($validator);
@@ -128,5 +130,16 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
     }
 
 
-
+    /**
+     * @return string
+     * @throws \Exception
+     */
+    public function getMethod(): string
+    {
+        return match (true) {
+            is_subclass_of($this, GetRequest::class) => 'get',
+            is_subclass_of($this, PostRequest::class) => 'post',
+            default => throw new \Exception('Unknown request type'),
+        };
+    }
 }

@@ -41,7 +41,7 @@ class ExecutiveRequest implements Arrayable
 
     public function __construct(readonly private AbstractRequest $clientRequest)
     {
-        $clientRequest::validate($clientRequest->toArray());
+        $clientRequest->validateRequest();
 
         $this->setQueryParams();
         $this->setBodyParams();
@@ -52,16 +52,15 @@ class ExecutiveRequest implements Arrayable
         $this->headers = $this->clientRequest->getClientDTO()->getHeaders();
         $this->bodyFormat = $this->clientRequest->getBodyFormat() ?: $this->clientRequest->getClientDTO()->getBodyFormat() ?: RequestOptions::JSON;;
         $this->timeout = $this->clientRequest->getTimeout() ?: $this->clientRequest->getClientDTO()->getTimeout();
-
-
     }
 
     /**
-     * Выполнить запрос
+     * @return PromiseInterface|Response
+     * @throws \Exception
      */
     public function send(): PromiseInterface|Response
     {
-        return match ($this->getMethod($this->clientRequest)) {
+        return match ($this->clientRequest->getMethod()) {
             'get' => $this->get(),
             'post' => $this->post(),
             default => throw new InvalidArgumentException("Unsupported request type."),
@@ -138,6 +137,7 @@ class ExecutiveRequest implements Arrayable
         );
     }
 
+    //todo helper
     public function getUrlWithQueryParams(): string
     {
         $url = $this->url;
@@ -158,19 +158,16 @@ class ExecutiveRequest implements Arrayable
         }, $url);
 
         return $result . RequestHelper::getInstance()->makeQueryString($this->queryParams);
-//
-//        $url = $this->url;
-//
-//        $result = preg_replace_callback('/\{(\w+)\}/', function ($matches) {
-//            $property = $matches[1];
-//            return property_exists($this->getClientRequest(), $property) ? $this->getClientRequest()->$property : $matches[0];
-//        }, $url);
-//
-//        return $result . RequestHelper::getInstance()->makeQueryString($this->queryParams);
     }
 
     private function getMethod(AbstractRequest $abstractRequest): string
     {
+        $method = match(true) {
+            is_subclass_of($abstractRequest, GetRequest::class) => 'get',
+            is_subclass_of($abstractRequest, PostRequest::class) => 'post',
+        };
+
+        dd($method);
         return $this->types[get_parent_class($abstractRequest)];
     }
 

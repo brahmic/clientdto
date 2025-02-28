@@ -2,6 +2,7 @@
 
 namespace Brahmic\ClientDTO\Response;
 
+use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
 use Brahmic\ClientDTO\Requests\ExecutiveRequest;
 use Brahmic\ClientDTO\Support\Log;
@@ -14,13 +15,14 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
 {
     private readonly bool $error;
 
-    public function __construct(private readonly mixed              $resolved,
-                                private readonly ?string            $message,
-                                private readonly ?int               $status,
+    public function __construct(private readonly mixed             $resolved,
+                                private readonly ?string           $message,
+                                private readonly ?int              $status,
                                 private readonly array             $details,
+                                private readonly ?AbstractRequest  $clientRequest,
                                 private readonly ?ExecutiveRequest $executiveRequest,
-                                private readonly ?Response          $response,
-                                private readonly ?Log               $log,
+                                private readonly ?Response         $response,
+                                private readonly ?Log              $log,
     )
     {
 
@@ -29,25 +31,38 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
 
     public function toArray(): array
     {
-        return [
-            'result' => $this->error,
-            'error' => is_null($this->resolved),
+        $result = [
+            'result' => $this->resolved,
+            'error' => $this->error,
             'message' => $this->message,
-            'status' => $this->status,
-            'details' => $this->details,
-            'debug' => [
-                'url' => $this->executiveRequest?->getUrlWithQueryParams(),
-                'clientRequest' => $this->executiveRequest?->getClientRequest(),
-                'executiveRequest' => $this->executiveRequest,
-                'response' => $this->response,
-                'log' => $this->log->all(),
-            ]
         ];
+
+        if ($this->error && !empty($this->details)) {
+            $result['details'] = $this->details;
+        }
+
+        if ($this->clientRequest->getClientDTO()->isDebug()) {
+            $result['debug'] = [
+                'url' => $this->executiveRequest?->getUrlWithQueryParams(),
+                'clientRequest' => [
+                    'class' => $this->clientRequest::class,
+                    'baseUrl' => $this->clientRequest->getBaseUrl(),
+                    'url' => $this->clientRequest->getUrl(),
+                    'data' => $this->clientRequest->toArray(),
+                ],
+                'executiveRequest' => $this->executiveRequest?->toArray(),
+                'response' => $this->response,
+                'status' => $this->status,
+                'log' => $this->log->all(),
+            ];
+        }
+
+        return $result;
     }
 
     public function toResponse($request): \Illuminate\Http\JsonResponse|\Symfony\Component\HttpFoundation\Response
     {
-        return response()->json($this->resolved, $this->status);
+        return response()->json($this->toArray(), $this->status);
     }
 
     public function resolved(): mixed

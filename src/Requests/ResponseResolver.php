@@ -58,7 +58,9 @@ class ResponseResolver
 
         try {
             $this->executiveRequest = new ExecutiveRequest($this->clientRequest);
+
             $this->sendRequest();
+
         } catch (CreateDtoValidationException $exception) {
             $this->handleCreateDtoValidationException($exception);
         } catch (ValidationException $exception) {
@@ -87,6 +89,7 @@ class ResponseResolver
             $this->message,
             $this->statusCode,
             $this->details,
+            $this->clientRequest,
             $this->executiveRequest,
             $response,
             $this->log,
@@ -294,7 +297,15 @@ class ResponseResolver
 
     protected function handleValidationException(ValidationException $exception): void
     {
-        $this->setResponseStatus(HttpResponse::HTTP_BAD_REQUEST, $exception->getMessage());
+
+        $message = "Input data validation error";
+
+        if (app()->hasDebugModeEnabled() && app()->isLocal()) {
+            $class = $this->clientRequest::class;
+            $message = "Input data validation error in the {$class}";
+        }
+
+        $this->setResponseStatus(HttpResponse::HTTP_BAD_REQUEST, $message);
 
         $this->details = $exception->validator->errors()->all();
     }

@@ -92,9 +92,7 @@ class RequestHelper
         $result = Collection::make();
 
         foreach ($reflectionClass->getProperties($filter) as $reflectionProperty) {
-            if ($reflectionProperty->class === $class) {
-                $result->put($reflectionProperty->getName(), $reflectionProperty);
-            }
+            $result->put($reflectionProperty->getName(), $reflectionProperty);
         }
 
         return $result;
