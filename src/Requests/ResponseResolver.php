@@ -40,21 +40,24 @@ class ResponseResolver
 
     private bool $isAttemptNeeded = false;
 
-    public function __construct(private readonly AbstractRequest $clientRequest)
+    private AbstractRequest $clientRequest;
+
+    public function __construct()
     {
         $this->log = new Log();
-        $this->remainingOfAttempts = $this->getAttempts();
-        $this->attempts = $this->getAttempts();
-
-        $this->log->add(sprintf("Execute `%s` request", class_basename($clientRequest)));
     }
 
     /**
      * @return ClientResponseInterface|ClientResponse
      * @throws Throwable
      */
-    public function execute(): ClientResponseInterface|ClientResponse
+    public function execute(AbstractRequest $clientRequest): ClientResponseInterface|ClientResponse
     {
+        $this->clientRequest = $clientRequest;
+        $this->remainingOfAttempts = $this->getAttempts();
+        $this->attempts = $this->getAttempts();
+
+        $this->log->add(sprintf("Execute `%s` request", class_basename($clientRequest)));
 
         try {
             $this->executiveRequest = new ExecutiveRequest($this->clientRequest);
@@ -93,7 +96,6 @@ class ResponseResolver
             $this->executiveRequest,
             $response,
             $this->log,
-            $this->isAttemptNeeded,
         );
     }
 

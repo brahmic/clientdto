@@ -33,12 +33,7 @@ class ExecutiveRequest implements Arrayable
     private string $bodyFormat; // 'json', 'form', 'multipart'
 
     private string $fullUrl;
-
-    private array $types = [
-        GetRequest::class => 'get',
-        PostRequest::class => 'post',
-    ];
-
+    
     public function __construct(readonly private AbstractRequest $clientRequest)
     {
         $clientRequest->validateRequest();
@@ -158,17 +153,6 @@ class ExecutiveRequest implements Arrayable
         }, $url);
 
         return $result . RequestHelper::getInstance()->makeQueryString($this->queryParams);
-    }
-
-    private function getMethod(AbstractRequest $abstractRequest): string
-    {
-        $method = match(true) {
-            is_subclass_of($abstractRequest, GetRequest::class) => 'get',
-            is_subclass_of($abstractRequest, PostRequest::class) => 'post',
-        };
-
-        dd($method);
-        return $this->types[get_parent_class($abstractRequest)];
     }
 
     public function toArray(): array

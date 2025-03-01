@@ -25,7 +25,6 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
                                 private readonly ?Log              $log,
     )
     {
-
         $this->error = is_null($this->resolved);
     }
 

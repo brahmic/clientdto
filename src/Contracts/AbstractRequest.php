@@ -39,11 +39,10 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
 
     private ?AbstractResource $resource = null;
 
-    // todo попытки, если валидация ответа не прошла и клиент решил повторить запрос
 
     public function send(): ClientResponseInterface|ClientResponse
     {
-        return new ResponseResolver($this)->execute();
+        return new ResponseResolver()->execute($this);
     }
 
     /**
