@@ -141,4 +141,9 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
             default => throw new \Exception('Unknown request type'),
         };
     }
+
+    public function getResponseClass(): string
+    {
+        return $this->getClientDTO()->getResponseClass();
+    }
 }

@@ -40,7 +40,7 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
             $result['details'] = $this->details;
         }
 
-        if ($this->clientRequest->getClientDTO()->isDebug()) {
+        if ($this->clientRequest?->getClientDTO()->isDebug()) {
             $result['debug'] = [
                 'url' => $this->executiveRequest?->getUrlWithQueryParams(),
                 'clientRequest' => [

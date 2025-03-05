@@ -2,6 +2,7 @@
 
 namespace Brahmic\ClientDTO\Requests;
 
+use Brahmic\ClientDTO\Contracts\AbstractPageableRequest;
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientRequestInterface;
 use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
@@ -40,11 +41,19 @@ class ResponseResolver
 
     private bool $isAttemptNeeded = false;
 
-    private AbstractRequest $clientRequest;
+    private ?AbstractRequest $clientRequest = null;
+    private ?string $responseClass = null;
 
     public function __construct()
     {
         $this->log = new Log();
+    }
+
+    public function executePageable(AbstractPageableRequest $pageableRequest): ClientResponseInterface|ClientResponse
+    {
+        $this->responseClass = $pageableRequest->getResponseClass();
+        $this->statusCode = $pageableRequest->getStatusCode();
+        return $this->createClientResponse();
     }
 
     /**
@@ -54,6 +63,7 @@ class ResponseResolver
     public function execute(AbstractRequest $clientRequest): ClientResponseInterface|ClientResponse
     {
         $this->clientRequest = $clientRequest;
+        $this->responseClass = $clientRequest->getResponseClass();
         $this->remainingOfAttempts = $this->getAttempts();
         $this->attempts = $this->getAttempts();
 
@@ -85,9 +95,7 @@ class ResponseResolver
 
     private function createClientResponse(PromiseInterface|Response|null $response = null): ClientResponseInterface
     {
-        $responseClass = $this->clientRequest->getClientDTO()->getResponseClass();
-
-        return new $responseClass(
+        return new $this->responseClass(
             $this->resolved,
             $this->message,
             $this->statusCode,
