@@ -12,4 +12,6 @@ interface PaginableInterface
     public function previousPage(): mixed;
 
     public function nextPage(): mixed;
+
+    public function getRows(): int;
 }
