@@ -44,24 +44,24 @@ class PaginatedRequest
      */
     private int $rows = 20;
 
-    protected int $loop;
+    private int $loop;
 
-    protected ?int $totalPages = null;
+    private ?int $totalPages = null;
 
-    protected ?int $totalItems = null;
+    private ?int $totalItems = null;
 
-    protected ?int $attempt = null;
+    private ?int $attempt = null;
 
-    protected ?int $statusCode = null;
+    private ?int $statusCode = null;
 
-    protected ?Collection $result = null;
+    private ?Collection $result = null;
 
-    protected ?Collection $errors = null;
+    private ?Collection $failed = null;
 
     /** @var string<PaginableRequestInterface> */
-    protected string $requestClass;
+    private string $requestClass;
 
-    protected AbstractRequest $clientRequest;
+    private AbstractRequest $clientRequest;
 
     private PaginatedStrategy $strategy = PaginatedStrategy::Pages;
 
@@ -131,10 +131,9 @@ class PaginatedRequest
 
     }
 
-
     private function fetchData(): ?Collection
     {
-        $this->errors = collect();
+        $this->failed = collect();
 
         $this->attempt = 0;
 
@@ -192,7 +191,7 @@ class PaginatedRequest
                         $this->afterFirstResult($result);
                     }
                 } else {
-                    $this->errors->put($page, $clientResponse->toArray());
+                    $this->failed->put($page, $clientResponse->toArray());
                 }
 
                 $this->loop++;
@@ -201,11 +200,10 @@ class PaginatedRequest
                 return [$page => $result ?? false];
             });
 
-        return $this->retriveBrokenPages($result);
-
+        return $this->retryFailed($result);
     }
 
-    private function retriveBrokenPages(Collection $result): Collection
+    private function retryFailed(Collection $result): Collection
     {
         $brokenPages = $result->filter(fn($value) => $value === false);
 
@@ -219,7 +217,7 @@ class PaginatedRequest
             return $this->fetch($brokenPages->keys());
         }
 
-        throw new PaginationRequestException('Failed to retrieve all required pages', $this->errors);
+        throw new PaginationRequestException('Failed to retrieve all required pages', $this->failed);
     }
 
     /**
