@@ -99,7 +99,7 @@ abstract class AbstractPaginatedRequest extends Data
 
             if ($resolved = $clone->firstPage()) {
 
-                $this->preflight($resolved);
+                $this->preflight($this, $resolved);
 
                 if (is_null($this->totalItems) || is_null($this->totalPages)) {
                     throw new PreflightRequestException("Can't complete the paginated request. Use `preflight` method for set `totalItems` and `totalPages`");
