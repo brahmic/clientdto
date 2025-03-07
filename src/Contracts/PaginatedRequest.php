@@ -283,7 +283,7 @@ class PaginatedRequest
     }
 
 
-    public function whole(?int $rows = null): static //todo rename to all
+    public function all(?int $rows = null): static //todo rename to all
     {
         $this->from = 1;
 
