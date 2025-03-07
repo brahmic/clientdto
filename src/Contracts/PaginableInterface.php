@@ -15,7 +15,9 @@ interface PaginableInterface
 
     public function nextPage(): mixed;
 
+    public function firstPage(): mixed;
+
     public function getRows(): int;
 
-    public function send(): ClientResponseInterface|ClientResponse;
+    //public function send(): ClientResponseInterface|ClientResponse;
 }

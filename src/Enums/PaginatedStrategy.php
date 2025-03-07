@@ -7,5 +7,5 @@ enum PaginatedStrategy
     case All;
     case Range;
     case Pages;
-    case Count;
+    case Number;
 }
