@@ -39,12 +39,14 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
 
     private ?AbstractResource $resource = null;
     private bool $hasBeenExecuted = false;
+    private ?ClientResponseInterface $response = null;
 
 
     public function send(): ClientResponseInterface|ClientResponse
     {
         $this->hasBeenExecuted = true;
-        return new ResponseResolver()->execute($this);
+        $this->response = new ResponseResolver()->execute($this);
+        return $this->response;
     }
 
     public function hasBeenExecuted(): bool
@@ -152,5 +154,10 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
     public function getResponseClass(): string
     {
         return $this->getClientDTO()->getResponseClass();
+    }
+
+    public function getResponse(): ?ClientResponseInterface
+    {
+        return $this->response;
     }
 }

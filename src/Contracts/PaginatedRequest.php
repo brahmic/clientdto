@@ -9,10 +9,9 @@ use Brahmic\ClientDTO\Requests\ResponseResolver;
 use Brahmic\ClientDTO\Response\ClientResponse;
 use Exception;
 use Illuminate\Support\Collection;
-use Spatie\LaravelData\Data;
 
 
-abstract class AbstractPaginatedRequest extends Data
+class PaginatedRequest
 {
 
     /**
@@ -55,28 +54,33 @@ abstract class AbstractPaginatedRequest extends Data
 
     protected ?int $statusCode = null;
 
-    protected ?Collection $collection = null;
+    protected ?Collection $result = null;
 
     protected ?Collection $errors = null;
 
-    /** @var string<PaginableInterface> */
+    /** @var string<PaginableRequestInterface> */
     protected string $requestClass;
 
-    protected ?PaginableInterface $clientRequest = null;
+    protected AbstractRequest $clientRequest;
 
     private PaginatedStrategy $strategy = PaginatedStrategy::Pages;
 
-    abstract public function getResponseClass(): string;
 
-    abstract public function getResolved(): mixed;
+    public function __construct(AbstractRequest $request)
+    {
+        if (!$request instanceof PaginableRequestInterface) {
+            throw new Exception('Request should be implement PaginableRequestInterface');
+        }
+
+        $this->clientRequest = $request;
+    }
+
 
     public function send(): ClientResponse|ClientResponseInterface
     {
         $this->statusCode = 200;
 
-        $this->clientRequest = $this->makeRequest();
-
-        $this->collection = $this->fetchData();
+        $this->result = $this->fetchData();
 
         return new ResponseResolver()->executePageable($this);
     }
@@ -86,42 +90,58 @@ abstract class AbstractPaginatedRequest extends Data
         return $this->statusCode;
     }
 
-    protected function makeRequest(): PaginableInterface|ClientRequestInterface
+    public function getClientRequest(): AbstractRequest
     {
-        return $this->requestClass::from($this);
+        return $this->clientRequest;
     }
 
-    protected function preflightRequest(): void
+    public function getResolved(): ?array
     {
-        if (method_exists($this, 'preflight') && $this->loop = 1) {
+        if ($this->result) {
+            return [
+                'total' => $this->totalItems,
+                'items' => $this->result,
+            ];
+        }
+
+        return null;
+    }
+
+
+    private function preflightRequest(): void
+    {
+        if (method_exists($this->clientRequest, 'preflight') && $this->loop = 1) {
 
             $clone = clone($this->clientRequest);
 
             if ($resolved = $clone->firstPage()) {
 
-                $this->preflight($this, $resolved);
+                $this->clientRequest->preflight($this, $resolved);
 
-                if (is_null($this->totalItems) || is_null($this->totalPages)) {
-                    throw new PreflightRequestException("Can't complete the paginated request. Use `preflight` method for set `totalItems` and `totalPages`");
-                }
-
-                return;
+                //return;
+            } else {
+                //dd($clone->getResponse()->toArray());
+                throw new PreflightRequestException("Preflight request error. {$clone->getResponse()->getMessage()}.");
             }
-
-            throw new PreflightRequestException('Preflight request error');
         }
+
+        if (is_null($this->totalItems) || is_null($this->totalPages)) {
+            throw new PreflightRequestException("Can't complete the paginated request. Use `preflight` method for set `totalItems` and `totalPages`");
+        }
+
     }
 
 
-    public function fetchData(): ?Collection
+    private function fetchData(): ?Collection
     {
         $this->errors = collect();
 
         $this->attempt = 0;
 
-        $this->preflightRequest();
 
         try {
+            $this->preflightRequest();
+
             $data = match ($this->strategy) {
                 PaginatedStrategy::Pages => $this->strategyPages(),
                 PaginatedStrategy::Range => $this->strategyRange(),
@@ -130,9 +150,10 @@ abstract class AbstractPaginatedRequest extends Data
             };
 
             return $this->mergeResults($data);
+
         } catch (PaginationRequestException $exception) {
 
-            throw $exception;
+            //throw $exception;
             return null;
         }
     }
@@ -140,8 +161,8 @@ abstract class AbstractPaginatedRequest extends Data
     private function mergeResults(Collection $result): Collection
     {
         return $result->map(function ($item) {
-            if (method_exists($this, 'mergeDataHandler')) {
-                return $this->mergeDataHandler($item);
+            if (method_exists($this->clientRequest, 'mergeDataHandler')) {
+                return $this->clientRequest->mergeDataHandler($item);
             }
             return $item;
         })->flatten(1);
@@ -160,7 +181,7 @@ abstract class AbstractPaginatedRequest extends Data
             ->mapWithKeys(function ($page) {
 
                 if (!is_null($this->totalPages) && $page > $this->totalPages) {
-                    throw new \RuntimeException('Incorrect calculation of total number of records and pages');
+                    throw new \RuntimeException('Incorrect total record and page count');
                     //return [$page => null];
                 }
 
@@ -180,11 +201,20 @@ abstract class AbstractPaginatedRequest extends Data
                 return [$page => $result ?? false];
             });
 
+        return $this->retriveBrokenPages($result);
+
+    }
+
+    private function retriveBrokenPages(Collection $result): Collection
+    {
         $brokenPages = $result->filter(fn($value) => $value === false);
 
         if ($brokenPages->isEmpty()) {
+
             return $result;
+
         } elseif ($this->attempt < 3) { /* max attempts */
+
             $this->attempt++;
             return $this->fetch($brokenPages->keys());
         }
@@ -314,14 +344,13 @@ abstract class AbstractPaginatedRequest extends Data
         return $this;
     }
 
-    protected function setTotalItems(?int $totalItems): void
+    public function setTotalItems(?int $totalItems): void
     {
         $this->totalItems = $totalItems;
     }
 
-    protected function setTotalPages(?int $totalPages): void
+    public function setTotalPages(?int $totalPages): void
     {
         $this->totalPages = $totalPages;
     }
-
 }

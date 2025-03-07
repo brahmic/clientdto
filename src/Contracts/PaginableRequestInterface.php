@@ -4,7 +4,7 @@ namespace Brahmic\ClientDTO\Contracts;
 
 use Brahmic\ClientDTO\Response\ClientResponse;
 
-interface PaginableInterface
+interface PaginableRequestInterface
 {
 
     public function setPage(int $page): static;
@@ -18,6 +18,8 @@ interface PaginableInterface
     public function firstPage(): mixed;
 
     public function getRows(): int;
+
+    public function mass(): PaginatedRequest;
 
     //public function send(): ClientResponseInterface|ClientResponse;
 }

@@ -2,7 +2,7 @@
 
 namespace Brahmic\ClientDTO\Requests;
 
-use Brahmic\ClientDTO\Contracts\AbstractPaginatedRequest;
+use Brahmic\ClientDTO\Contracts\PaginatedRequest;
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientRequestInterface;
 use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
@@ -49,9 +49,9 @@ class ResponseResolver
         $this->log = new Log();
     }
 
-    public function executePageable(AbstractPaginatedRequest $pageableRequest): ClientResponseInterface|ClientResponse
+    public function executePageable(PaginatedRequest $pageableRequest): ClientResponseInterface|ClientResponse
     {
-        $this->responseClass = $pageableRequest->getResponseClass();
+        $this->responseClass = $pageableRequest->getClientRequest()->getResponseClass();
         $this->statusCode = $pageableRequest->getStatusCode();
         $this->resolved = $pageableRequest->getResolved();
         return $this->createClientResponse();

@@ -68,4 +68,9 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
     {
         return $this->resolved;
     }
+
+    public function getMessage(): ?string
+    {
+        return $this->message;
+    }
 }
