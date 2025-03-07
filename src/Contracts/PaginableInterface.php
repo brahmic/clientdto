@@ -2,6 +2,8 @@
 
 namespace Brahmic\ClientDTO\Contracts;
 
+use Brahmic\ClientDTO\Response\ClientResponse;
+
 interface PaginableInterface
 {
 
@@ -14,4 +16,6 @@ interface PaginableInterface
     public function nextPage(): mixed;
 
     public function getRows(): int;
+
+    public function send(): ClientResponseInterface|ClientResponse;
 }

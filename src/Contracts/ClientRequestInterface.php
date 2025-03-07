@@ -3,6 +3,7 @@
 namespace Brahmic\ClientDTO\Contracts;
 
 
+use Brahmic\ClientDTO\Response\ClientResponse;
 use Spatie\LaravelData\Data;
 
 interface ClientRequestInterface
@@ -16,4 +17,6 @@ interface ClientRequestInterface
     public function getResource(): AbstractResource;
 
     public function toArray(): array;
+
+    public function send(): ClientResponseInterface|ClientResponse;
 }
