@@ -30,7 +30,7 @@ class ResponseManager
     }
 
 
-    public function make(Closure $unitOfWork, string $responseClass): ClientResponse|ClientResponseInterface
+    public function execute(Closure $unitOfWork, string $responseClass): ClientResponse|ClientResponseInterface
     {
         $this->statusCode = 200;
 
@@ -46,7 +46,6 @@ class ResponseManager
             $this->handlePaginationRequestException($exception);
 
         } catch (\Throwable $exception) {
-            dd(123);
             $this->handleThrowableException($exception);
         }
 
@@ -60,30 +59,35 @@ class ResponseManager
         );
     }
 
-    private function handlePreflightRequestException(PreflightRequestException $exception)
+    private function handlePreflightRequestException(PreflightRequestException $exception): void
     {
-        $this->statusCode = HttpResponse::HTTP_BAD_GATEWAY;
-        $this->message = $exception->getMessage();
+        $this->setResponseStatus(
+            HttpResponse::HTTP_BAD_GATEWAY,
+            app()->isLocal() ? $exception->getMessage() : 'Internal server error, please contact the service administrator'
+        );
 
         if (app()->hasDebugModeEnabled() && app()->isLocal()) {
             $this->details = $exception->getClientResponse()?->toArray();
         }
     }
 
-    private function handlePaginationRequestException(PaginationRequestException $exception)
+    private function handlePaginationRequestException(PaginationRequestException $exception): void
     {
-
-        $this->statusCode = $exception->getCode();
-        $this->message = $exception->getMessage();
+        $this->setResponseStatus($exception->getCode(), $exception->getMessage());
 
         if (app()->hasDebugModeEnabled() && app()->isLocal()) {
             $this->details = $exception->getFailed()->toArray();
         }
     }
 
-    private function handleThrowableException(Throwable $exception)
+    private function handleThrowableException(Throwable $exception): void
     {
-        $this->statusCode = HttpResponse::HTTP_INTERNAL_SERVER_ERROR;
-        $this->message = $exception->getMessage();
+        $this->setResponseStatus(HttpResponse::HTTP_INTERNAL_SERVER_ERROR, $exception->getMessage());
+    }
+
+    protected function setResponseStatus(int $statusCode, string $message): void
+    {
+        $this->statusCode = $statusCode;
+        $this->message = $message;
     }
 }

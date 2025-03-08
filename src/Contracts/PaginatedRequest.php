@@ -76,9 +76,9 @@ class PaginatedRequest
 
     public function send(): ClientResponse|ClientResponseInterface
     {
-        return new ResponseManager()->make(function () {
+        return new ResponseManager()->execute(function () {
 
-            return $this->getResolved($this->fetchData());
+            return $this->getResolved($this->execute());
 
         }, $this->clientRequest->getResponseClass());
     }
@@ -129,7 +129,7 @@ class PaginatedRequest
      * @throws PreflightRequestException
      * @throws Exception
      */
-    private function fetchData(): Collection
+    public function execute(): Collection
     {
         $this->failed = collect();
 
