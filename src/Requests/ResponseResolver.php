@@ -49,13 +49,13 @@ class ResponseResolver
         $this->log = new Log();
     }
 
-    public function executePageable(PaginatedRequest $pageableRequest): ClientResponseInterface|ClientResponse
-    {
-        $this->responseClass = $pageableRequest->getClientRequest()->getResponseClass();
-        $this->statusCode = $pageableRequest->getStatusCode();
-        $this->resolved = $pageableRequest->getResolved();
-        return $this->createClientResponse();
-    }
+//    public function executePageable(PaginatedRequest $pageableRequest): ClientResponseInterface|ClientResponse
+//    {
+//        $this->responseClass = $pageableRequest->getClientRequest()->getResponseClass();
+//        $this->statusCode = $pageableRequest->getStatusCode();
+//        $this->resolved = $pageableRequest->getResolved();
+//        return $this->createClientResponse();
+//    }
 
     /**
      * @return ClientResponseInterface|ClientResponse
@@ -162,7 +162,7 @@ class ResponseResolver
 
     private function resolveFile(mixed $data): mixed
     {
-        //файл, который надо скачать, распаковать и прочее
+        //todo файл, который надо скачать, распаковать и прочее
     }
 
     private function resolveDto(mixed $data): mixed

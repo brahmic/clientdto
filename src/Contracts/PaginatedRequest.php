@@ -5,10 +5,11 @@ namespace Brahmic\ClientDTO\Contracts;
 use Brahmic\ClientDTO\Enums\PaginatedStrategy;
 use Brahmic\ClientDTO\Exceptions\PaginationRequestException;
 use Brahmic\ClientDTO\Exceptions\PreflightRequestException;
-use Brahmic\ClientDTO\Requests\ResponseResolver;
 use Brahmic\ClientDTO\Response\ClientResponse;
+use Brahmic\ClientDTO\Support\ResponseManager;
 use Exception;
 use Illuminate\Support\Collection;
+use Throwable;
 
 
 class PaginatedRequest
@@ -52,10 +53,6 @@ class PaginatedRequest
 
     private ?int $attempt = null;
 
-    private ?int $statusCode = null;
-
-    private ?Collection $result = null;
-
     private ?Collection $failed = null;
 
     /** @var string<PaginableRequestInterface> */
@@ -76,32 +73,24 @@ class PaginatedRequest
     }
 
 
+
     public function send(): ClientResponse|ClientResponseInterface
     {
-        $this->statusCode = 200;
+        return new ResponseManager()->make(function () {
 
-        $this->result = $this->fetchData();
+            return $this->getResolved($this->fetchData());
 
-        return new ResponseResolver()->executePageable($this);
+        }, $this->clientRequest->getResponseClass());
     }
 
-    public function getStatusCode(): ?int
-    {
-        return $this->statusCode;
-    }
 
-    public function getClientRequest(): AbstractRequest
+    public function getResolved(?Collection $result): ?array
     {
-        return $this->clientRequest;
-    }
-
-    public function getResolved(): ?array
-    {
-        if ($this->result) {
+        if ($result) {
             return [
-                'total' => $this->totalItems,
-                'extracted' => $this->result->count(),
-                'items' => $this->result,
+                'count' => $this->totalItems,
+                'extracted' => $result->count(),
+                'items' => $result,
             ];
         }
 
@@ -109,6 +98,9 @@ class PaginatedRequest
     }
 
 
+    /**
+     * @throws PreflightRequestException
+     */
     private function preflightRequest(): void
     {
         if (method_exists($this->clientRequest, 'preflight') && $this->loop = 1) {
@@ -121,8 +113,8 @@ class PaginatedRequest
 
                 //return;
             } else {
-                //dd($clone->getResponse()->toArray());
-                throw new PreflightRequestException("Preflight request error. {$clone->getResponse()->getMessage()}.");
+
+                throw new PreflightRequestException("Preflight request error.", $clone->getResponse());
             }
         }
 
@@ -132,30 +124,27 @@ class PaginatedRequest
 
     }
 
-    private function fetchData(): ?Collection
+    /**
+     * @throws PaginationRequestException
+     * @throws PreflightRequestException
+     * @throws Exception
+     */
+    private function fetchData(): Collection
     {
         $this->failed = collect();
 
         $this->attempt = 0;
 
+        $this->preflightRequest();
 
-        try {
-            $this->preflightRequest();
+        $data = match ($this->strategy) {
+            PaginatedStrategy::Pages => $this->strategyPages(),
+            PaginatedStrategy::Range => $this->strategyRange(),
+            PaginatedStrategy::Number => $this->strategyNumber(),
+            PaginatedStrategy::All => $this->strategyAll(),
+        };
 
-            $data = match ($this->strategy) {
-                PaginatedStrategy::Pages => $this->strategyPages(),
-                PaginatedStrategy::Range => $this->strategyRange(),
-                PaginatedStrategy::Number => $this->strategyNumber(),
-                PaginatedStrategy::All => $this->strategyAll(),
-            };
-
-            return $this->mergeResults($data);
-
-        } catch (PaginationRequestException $exception) {
-
-            //throw $exception;
-            return null;
-        }
+        return $this->mergeResults($data);
     }
 
     private function mergeResults(Collection $result): Collection
@@ -192,6 +181,7 @@ class PaginatedRequest
                         $this->afterFirstResult($result);
                     }
                 } else {
+                    // todo в массив класть тяжесть только в дебаг мод
                     $this->failed->put($page, $clientResponse->toArray());
                 }
 
@@ -204,6 +194,9 @@ class PaginatedRequest
         return $this->retryFailed($result);
     }
 
+    /**
+     * @throws PaginationRequestException
+     */
     private function retryFailed(Collection $result): Collection
     {
         $brokenPages = $result->filter(fn($value) => $value === false);
@@ -264,13 +257,15 @@ class PaginatedRequest
         return $this->fetch();
     }
 
+
     /**
-     * @throws \Exception
+     * @throws PaginationRequestException
+     * @throws Exception
      */
     private function strategyRange(): Collection
     {
         if ($this->from > $this->totalPages) {
-            throw new \Exception("Pages `from` out of range. Maximum: `{$this->totalPages}` pages of `{$this->rows}` rows.");
+            throw new Exception("Pages `from` out of range. Maximum: `{$this->totalPages}` pages of `{$this->rows}` rows.");
         }
 
         if ($this->to > $this->totalPages) {
@@ -352,4 +347,5 @@ class PaginatedRequest
     {
         $this->totalPages = $totalPages;
     }
+
 }

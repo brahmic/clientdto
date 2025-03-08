@@ -19,10 +19,10 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
                                 private readonly ?string           $message,
                                 private readonly ?int              $status,
                                 private readonly array             $details,
-                                private readonly ?AbstractRequest  $clientRequest,
-                                private readonly ?ExecutiveRequest $executiveRequest,
-                                private readonly ?Response         $response,
-                                private readonly ?Log              $log,
+                                private readonly ?AbstractRequest  $clientRequest = null,
+                                private readonly ?ExecutiveRequest $executiveRequest = null,
+                                private readonly ?Response         $response = null,
+                                private readonly ?Log              $log = null,
     )
     {
         $this->error = is_null($this->resolved);

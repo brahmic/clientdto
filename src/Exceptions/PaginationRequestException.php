@@ -8,13 +8,13 @@ use Illuminate\Support\Collection;
 class PaginationRequestException extends Exception
 {
 
-    public function __construct($message, protected Collection $errors)
+    public function __construct($message, protected Collection $failed)
     {
         parent::__construct($message, 502);
     }
 
-    public function getErrors(): Collection
+    public function getFailed(): Collection
     {
-        return $this->errors;
+        return $this->failed;
     }
 }
