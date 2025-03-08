@@ -100,6 +100,7 @@ class PaginatedRequest
         if ($this->result) {
             return [
                 'total' => $this->totalItems,
+                'extracted' => $this->result->count(),
                 'items' => $this->result,
             ];
         }
