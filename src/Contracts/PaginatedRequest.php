@@ -9,7 +9,6 @@ use Brahmic\ClientDTO\Response\ClientResponse;
 use Brahmic\ClientDTO\Support\ResponseManager;
 use Exception;
 use Illuminate\Support\Collection;
-use Throwable;
 
 
 class PaginatedRequest
