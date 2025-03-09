@@ -31,7 +31,7 @@ class ClientResolver
         ]);
 
         $resolver->clients[$resolver->getKey($clientDTOClass)] = $data;
-dd($data);
+        dd($data);
         return $data;
     }
 
@@ -42,6 +42,7 @@ dd($data);
         $data = $resolver->getData($resourceClass);
 
         if (array_key_exists('resource', $data) && $clientClass = $data['resource']) {
+
             return app($clientClass);
         }
 
@@ -53,7 +54,7 @@ dd($data);
         $resolver = self::getInstance();
 
         $data = $resolver->getData($resourceOrRequestClass);
-dd($data);
+        dd($data);
         return app($data['client']);
     }
 
@@ -112,11 +113,12 @@ dd($data);
         //$this->buildCallChain($clientClass, $chain, );;
 
         $callMap = [];
-        $callMap[$clientClass] = $this->buildCallMap($clientClass, $callMap);
+        $result = $this->buildCallMap($clientClass, $callMap);
 
-dd($callMap);
+        dump($callMap);
+        dd($result);
         $collectedClientResources = $this->collectClientResources($clientClass);
-dd($collectedClientResources);
+        dd($collectedClientResources);
         $resources = $collectedClientResources->mapWithKeys(function ($value, $key) {
             return [$key => ['client' => $value['client']]];
         });
@@ -140,15 +142,27 @@ dd($collectedClientResources);
     }
 
 
-    function buildCallMap(string $className, array &$callMap, array &$visited = []): ?array {
-        if (in_array($className, $visited)) {
+    function buildCallMap(string $className, array &$callMap = [], array &$visited = []): ?array
+    {
 
+        if (in_array($className, $visited)) {
             return null;
         }
+
 
         $visited[] = $className;
         $reflection = new ReflectionClass($className);
         $methodsMap = [];
+
+        $callMap['current'][] = $className;
+
+        if (is_subclass_of($className, AbstractRequest::class)) {
+            $callMap[$className]  = $callMap['current'];
+            array_pop($callMap['current']);
+            return null;
+        } else {
+
+        }
 
         foreach ($reflection->getMethods() as $method) {
             $returnType = $method->getReturnType();
@@ -157,21 +171,19 @@ dd($collectedClientResources);
                 $returnTypeName = $returnType->getName();
 
                 if (is_subclass_of($returnTypeName, AbstractResource::class) || is_subclass_of($returnTypeName, AbstractRequest::class)) {
-                    // Рекурсивно строим карту для возвращаемого типа
                     $methodsMap[$returnTypeName] = $this->buildCallMap($returnTypeName, $callMap, $visited);
                 }
             }
         }
 
-        if (is_subclass_of($className, AbstractRequest::class)) {
-            return null;
-        }
+        array_pop($callMap['current']);
 
         return $methodsMap;
     }
 
 
-    function invertCallMap(array $callMap): array {
+    function invertCallMap(array $callMap): array
+    {
         $invertedMap = [];
 
         foreach ($callMap as $requestClass => $chains) {
@@ -196,7 +208,8 @@ dd($collectedClientResources);
         return $invertedMap;
     }
 
-    function buildCallChain(string $className, array &$chain, array $currentPath = [], array &$visited = []): void {
+    function buildCallChain(string $className, array &$chain, array $currentPath = [], array &$visited = []): void
+    {
         if (in_array($className, $visited)) {
             return;
         }
