@@ -31,7 +31,7 @@ class ClientResolver
         ]);
 
         $resolver->clients[$resolver->getKey($clientDTOClass)] = $data;
-
+dd($data);
         return $data;
     }
 
@@ -53,7 +53,7 @@ class ClientResolver
         $resolver = self::getInstance();
 
         $data = $resolver->getData($resourceOrRequestClass);
-
+dd($data);
         return app($data['client']);
     }
 
@@ -105,12 +105,18 @@ class ClientResolver
     {
         $cacheKey = 'clientdto.' . $this->getKey($clientClass);
 
-        if (Cache::has($cacheKey) && !$force) {
-            return Cache::get($cacheKey);
-        }
+//        if (Cache::has($cacheKey) && !$force) {
+//            return Cache::get($cacheKey);
+//        }
+        $chain = [];
+        //$this->buildCallChain($clientClass, $chain, );;
 
+        $callMap = [];
+        $callMap[$clientClass] = $this->buildCallMap($clientClass, $callMap);
+
+dd($callMap);
         $collectedClientResources = $this->collectClientResources($clientClass);
-
+dd($collectedClientResources);
         $resources = $collectedClientResources->mapWithKeys(function ($value, $key) {
             return [$key => ['client' => $value['client']]];
         });
@@ -131,6 +137,94 @@ class ClientResolver
         Cache::put($cacheKey, $collected, Carbon::now()->addMonth());
 
         return $collected;
+    }
+
+
+    function buildCallMap(string $className, array &$callMap, array &$visited = []): ?array {
+        if (in_array($className, $visited)) {
+
+            return null;
+        }
+
+        $visited[] = $className;
+        $reflection = new ReflectionClass($className);
+        $methodsMap = [];
+
+        foreach ($reflection->getMethods() as $method) {
+            $returnType = $method->getReturnType();
+
+            if ($returnType instanceof ReflectionNamedType) {
+                $returnTypeName = $returnType->getName();
+
+                if (is_subclass_of($returnTypeName, AbstractResource::class) || is_subclass_of($returnTypeName, AbstractRequest::class)) {
+                    // Рекурсивно строим карту для возвращаемого типа
+                    $methodsMap[$returnTypeName] = $this->buildCallMap($returnTypeName, $callMap, $visited);
+                }
+            }
+        }
+
+        if (is_subclass_of($className, AbstractRequest::class)) {
+            return null;
+        }
+
+        return $methodsMap;
+    }
+
+
+    function invertCallMap(array $callMap): array {
+        $invertedMap = [];
+
+        foreach ($callMap as $requestClass => $chains) {
+            foreach ($chains as $chain) {
+                $currentLevel = &$invertedMap;
+
+                // Проходим по цепочке и строим новую иерархию
+                foreach ($chain as $class) {
+                    if (!isset($currentLevel[$class])) {
+                        $currentLevel[$class] = [];
+                    }
+                    $currentLevel = &$currentLevel[$class];
+                }
+
+                // Добавляем конечный элемент (класс Request)
+                if (!isset($currentLevel[$requestClass])) {
+                    $currentLevel[$requestClass] = [];
+                }
+            }
+        }
+
+        return $invertedMap;
+    }
+
+    function buildCallChain(string $className, array &$chain, array $currentPath = [], array &$visited = []): void {
+        if (in_array($className, $visited)) {
+            return;
+        }
+
+        $visited[] = $className;
+        $reflection = new ReflectionClass($className);
+
+        foreach ($reflection->getMethods() as $method) {
+            $returnType = $method->getReturnType();
+
+            if ($returnType instanceof ReflectionNamedType) {
+                $returnTypeName = $returnType->getName();
+
+                if (is_subclass_of($returnTypeName, AbstractResource::class)) {
+                    // Добавляем текущий класс в цепочку и продолжаем рекурсию
+                    $newPath = $currentPath;
+                    $newPath[] = $returnTypeName;
+                    $this->buildCallChain($returnTypeName, $chain, $newPath, $visited);
+                } elseif (is_subclass_of($returnTypeName, AbstractRequest::class)) {
+                    // Если возвращается AbstractRequest, сохраняем текущую цепочку
+                    if (!isset($chain[$returnTypeName])) {
+                        $chain[$returnTypeName] = [];
+                    }
+                    // Добавляем цепочку, начиная с Client и заканчивая AbstractRequest
+                    $chain[$returnTypeName][] = $currentPath;//array_merge([Client::class], $currentPath);
+                }
+            }
+        }
     }
 
     private function collectClientResources(string $clientClass): Collection
