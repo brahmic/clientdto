@@ -72,15 +72,13 @@ class PaginatedRequest
         $this->clientRequest = $request;
     }
 
-
-
     public function send(): ClientResponse|ClientResponseInterface
     {
         return new ResponseManager()->execute(function () {
 
             return $this->getResolved($this->execute());
 
-        }, $this->clientRequest->getResponseClass());
+        }, $this->clientRequest);
     }
 
 
@@ -111,7 +109,6 @@ class PaginatedRequest
 
                 $this->clientRequest->preflight($this, $resolved);
 
-                //return;
             } else {
 
                 throw new PreflightRequestException("Preflight request error.", $clone->getResponse());

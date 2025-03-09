@@ -11,6 +11,7 @@ use Brahmic\ClientDTO\Exceptions\CreateDtoValidationException;
 use Brahmic\ClientDTO\Response\ClientResponse;
 use Brahmic\ClientDTO\Support\Log;
 use Brahmic\ClientDTO\Support\MimeTypes;
+use Exception;
 use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
@@ -131,6 +132,10 @@ class ResponseResolver
     }
 
 
+    /**
+     * @throws CreateDtoValidationException
+     * @throws Exception
+     */
     private function resolve(Response $response): void
     {
         $this->log->add(sprintf("Request `%s` is successful, code: %s",
@@ -155,6 +160,11 @@ class ResponseResolver
                 $this->resolved = $this->resolveDto($json);
 
             } else {
+
+                if ($this->getClientRequest()->wantsJson()) {
+                    throw new Exception('Invalid response: expected JSON');
+                }
+
                 $this->resolved = $response->body();
             }
         }
@@ -308,10 +318,9 @@ class ResponseResolver
 
     protected function handleValidationException(ValidationException $exception): void
     {
-
         $message = "Input data validation error";
 
-        if (app()->hasDebugModeEnabled() && app()->isLocal()) {
+        if (app()->hasDebugModeEnabled()) {
             $class = $this->clientRequest::class;
             $message = "Input data validation error in the {$class}";
         }
@@ -325,7 +334,7 @@ class ResponseResolver
     {
         $this->setResponseStatus(HttpResponse::HTTP_BAD_GATEWAY, 'The data server is not responding');
 
-        if (app()->hasDebugModeEnabled() && app()->isLocal()) {
+        if (app()->hasDebugModeEnabled()) {
             $this->details = [$exception->getMessage()];
         }
     }
@@ -352,9 +361,9 @@ class ResponseResolver
     {
         $this->setResponseStatus($exception->getCode(), $exception->getMessage());
 
-        if (app()->hasDebugModeEnabled()) {
-            throw $exception;
-        }
+//        if (app()->hasDebugModeEnabled()) {
+//            throw $exception;
+//        }
     }
 
     /**

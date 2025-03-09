@@ -160,4 +160,29 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
     {
         return $this->response;
     }
+
+    /**
+     * *** Attention! ***
+     *
+     * Now if DTO is specified, it is assumed that the server response is expected in JSON.
+     * It is possible that in this case a different response may be expected,
+     * which should be converted into a DTO object. In this case, the verification
+     * method should be reviewed.
+     *
+     * Alternatively, this can be implemented by some kind of declaration,
+     * in case the DTO is specified, but the data is expected in text form, for example.
+     *
+     * @return bool
+     */
+    public function wantsJson(): bool
+    {
+        return !is_null($this->resolveDtoClass());
+    }
+
+    public function isDebug(): bool
+    {
+        return $this->getClientDTO()->isDebug();
+    }
+
+
 }

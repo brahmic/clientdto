@@ -2,6 +2,7 @@
 
 namespace Brahmic\ClientDTO\Support;
 
+use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
 use Brahmic\ClientDTO\Exceptions\PaginationRequestException;
 use Brahmic\ClientDTO\Exceptions\PreflightRequestException;
@@ -29,15 +30,13 @@ class ResponseManager
         $this->log = new Log();
     }
 
-
-    public function execute(Closure $unitOfWork, string $responseClass): ClientResponse|ClientResponseInterface
+    public function execute(Closure $unitOfWork, AbstractRequest $clientRequest): ClientResponse|ClientResponseInterface
     {
-        $this->statusCode = 200;
-
         try {
 
             $this->resolved = $unitOfWork();
 
+            $this->setResponseStatus(HttpResponse::HTTP_OK, 'Successful');
 
         } catch (PreflightRequestException $exception) {
             $this->handlePreflightRequestException($exception);
@@ -49,12 +48,14 @@ class ResponseManager
             $this->handleThrowableException($exception);
         }
 
+        $responseClass = $clientRequest->getResponseClass();
 
         return new $responseClass(
             resolved: $this->resolved,
             message: $this->message,
             status: $this->statusCode,
             details: $this->details,
+            clientRequest: $clientRequest,
             log: $this->log,
         );
     }
@@ -63,26 +64,35 @@ class ResponseManager
     {
         $this->setResponseStatus(
             HttpResponse::HTTP_BAD_GATEWAY,
-            app()->isLocal() ? $exception->getMessage() : 'Internal server error, please contact the service administrator'
+            app()->hasDebugModeEnabled() ? $exception->getMessage() : 'Internal server error, please contact the service administrator'
         );
 
-        if (app()->hasDebugModeEnabled() && app()->isLocal()) {
-            $this->details = $exception->getClientResponse()?->toArray();
-        }
+        $this->details = $exception->getClientResponse()?->toArray();
+
+//        if (app()->hasDebugModeEnabled()) {
+//        }
+
     }
 
     private function handlePaginationRequestException(PaginationRequestException $exception): void
     {
         $this->setResponseStatus($exception->getCode(), $exception->getMessage());
 
-        if (app()->hasDebugModeEnabled() && app()->isLocal()) {
+        if (app()->hasDebugModeEnabled()) {
             $this->details = $exception->getFailed()->toArray();
         }
     }
 
     private function handleThrowableException(Throwable $exception): void
     {
-        $this->setResponseStatus(HttpResponse::HTTP_INTERNAL_SERVER_ERROR, $exception->getMessage());
+        $this->setResponseStatus(
+            HttpResponse::HTTP_INTERNAL_SERVER_ERROR,
+            app()->hasDebugModeEnabled() ? $exception->getMessage() : 'Internal server error, please contact the service administrator'
+        );
+
+//        if (app()->hasDebugModeEnabled()) {
+//            throw $exception;
+//        }
     }
 
     protected function setResponseStatus(int $statusCode, string $message): void
