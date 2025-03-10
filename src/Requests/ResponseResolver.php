@@ -50,17 +50,9 @@ class ResponseResolver
         $this->log = new Log();
     }
 
-//    public function executePageable(PaginatedRequest $pageableRequest): ClientResponseInterface|ClientResponse
-//    {
-//        $this->responseClass = $pageableRequest->getClientRequest()->getResponseClass();
-//        $this->statusCode = $pageableRequest->getStatusCode();
-//        $this->resolved = $pageableRequest->getResolved();
-//        return $this->createClientResponse();
-//    }
-
     /**
+     * @param AbstractRequest $clientRequest
      * @return ClientResponseInterface|ClientResponse
-     * @throws Throwable
      */
     public function execute(AbstractRequest $clientRequest): ClientResponseInterface|ClientResponse
     {
@@ -207,11 +199,11 @@ class ResponseResolver
 
         $this->log->add('Preparing...');
 
-        foreach ($this->executiveRequest->getChain() as $object) {
+        foreach ($this->clientRequest->getChain() as $chain) {
 
-            $current = $this->handle($object, $current);
+            $current = $this->handle($chain, $current);
 
-            $this->validation($object, $current);
+            $this->validation($chain, $current);
         }
 
         return $current;
@@ -307,7 +299,7 @@ class ResponseResolver
     protected function handleCreateDtoValidationException(CreateDtoValidationException $exception): void
     {
         if (app()->hasDebugModeEnabled()) {
-            $message = "The data received does not correspond to the declaration of {$exception->getClass()}";
+            $message = "The data received does not correspond to the declaration of {$exception->getClass()}. Please check the `handle` method of the client, resources or request";
             $this->details = $exception->validator->errors()->all();
         } else {
             $message = "Data error, please contact the service administrator";
@@ -361,9 +353,11 @@ class ResponseResolver
     {
         $this->setResponseStatus($exception->getCode(), $exception->getMessage());
 
+//        // todo !!!!в конфликте!!!
 //        if (app()->hasDebugModeEnabled()) {
 //            throw $exception;
 //        }
+
     }
 
     /**

@@ -13,13 +13,14 @@ use Brahmic\ClientDTO\Support\RequestHelper;
 use Brahmic\ClientDTO\Traits\BodyFormat;
 use Brahmic\ClientDTO\Traits\QueryParams;
 use Brahmic\ClientDTO\Traits\Timeout;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Spatie\LaravelData\Data;
 use Illuminate\Contracts\Support\Arrayable;
 
 
-abstract class AbstractRequest extends Data implements ClientRequestInterface
+abstract class AbstractRequest extends Data implements ClientRequestInterface, ChainInterface
 {
     use QueryParams, Timeout, BodyFormat;
 
@@ -106,11 +107,6 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
         return $this->clientDTO = $this->clientDTO ?: ClientResolver::resolve(static::class);
     }
 
-    public function getResource(): AbstractResource
-    {
-        return $this->resource = $this->resource ?: ClientResolver::resolveResource(static::class);
-    }
-
     public function queryParams(): array
     {
         return RequestHelper::getInstance()->resolveRequestParams($this, PropertyContext::QueryString);
@@ -182,6 +178,14 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface
     public function isDebug(): bool
     {
         return $this->getClientDTO()->isDebug();
+    }
+
+    /**
+     * @return Collection<ChainInterface>
+     */
+    public function getChain(): Collection
+    {
+        return ClientResolver::getChain($this)->push($this);
     }
 
 

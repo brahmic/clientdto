@@ -8,7 +8,6 @@ use Brahmic\ClientDTO\Contracts\AbstractResource;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use InvalidArgumentException;
 use ReflectionClass;
 use ReflectionNamedType;
 
@@ -25,41 +24,38 @@ class ClientResolver
 
         $clientDTOClass = is_object($clientDTO) ? $clientDTO::class : $clientDTO;
 
-        $data = collect([
-            'client' => $clientDTOClass,
-            ...$resolver->createClientResourcesMap($clientDTOClass, $force),
-        ]);
+        $data = $resolver->createClientResourcesMap($clientDTOClass, $force);
 
         $resolver->clients[$resolver->getKey($clientDTOClass)] = $data;
-        dd($data);
+
         return $data;
     }
 
-    public static function resolveResource(string $resourceClass): ?AbstractResource
+    public static function getChain(AbstractRequest $request): Collection
+    {
+        return self::getInstance()->getClassChain($request::class)->map(function (string $chain) use ($request) {
+            return app()->make($chain);
+        });
+    }
+
+
+    /**
+     * Resolve ClientDTO.
+     *
+     * @param string $class
+     * @return ClientDTO
+     * @throws \Exception
+     */
+    public static function resolve(string $class): ClientDTO
     {
         $resolver = self::getInstance();
 
-        $data = $resolver->getData($resourceClass);
-
-        if (array_key_exists('resource', $data) && $clientClass = $data['resource']) {
-
-            return app($clientClass);
-        }
-
-        return null;
+        return app($resolver->getClassChain($class)->get(0));
     }
 
-    public static function resolve(string $resourceOrRequestClass): ClientDTO
+    private function getClassChain(string $class): Collection
     {
-        $resolver = self::getInstance();
 
-        $data = $resolver->getData($resourceOrRequestClass);
-        dd($data);
-        return app($data['client']);
-    }
-
-    private function getData(string $class): array
-    {
         $data = $this->getResourceMap($class)->get($class);
 
         if (!$data) {
@@ -74,7 +70,7 @@ class ClientResolver
             }
         }
 
-        return $data;
+        return collect($data);
     }
 
     private function extractClassName(string $resourceClass): string
@@ -106,53 +102,38 @@ class ClientResolver
     {
         $cacheKey = 'clientdto.' . $this->getKey($clientClass);
 
-//        if (Cache::has($cacheKey) && !$force) {
-//            return Cache::get($cacheKey);
-//        }
+        if (Cache::has($cacheKey) && !$force) {
+            return Cache::get($cacheKey);
+        }
 
-        $result = [
+        $result = collect([
             $this->getKey($clientClass) => $clientClass,
-            ...$this->buildCallMap($clientClass),
-        ];
+            ...$this->buildCallMap($clientClass, $force),
+        ]);
 
-        dump($result);
+        Cache::put($cacheKey, $result, Carbon::now()->addMonth());
 
-        $collectedClientResources = $this->collectClientResources($clientClass);
-
-        $resources = $collectedClientResources->mapWithKeys(function ($value, $key) {
-            return [$key => ['client' => $value['client']]];
-        });
-
-        $requests = $collectedClientResources
-            ->map(function ($resource, $key) {
-                return $resource['requests']->mapWithKeys(function ($value) use ($key, $resource) {
-                    return [$value => [
-                        'client' => $resource['client'],
-                        'resource' => $resource['resource'],
-                    ]];
-                });
-            })
-            ->flatMap(fn($items) => $items);
-
-        $collected = $resources->merge($requests);
-
-        Cache::put($cacheKey, $collected, Carbon::now()->addMonth());
-
-        return $collected;
+        return $result;
     }
 
 
-    function buildCallMap(string $className, array &$callMap = [], array &$currentPath = []): ?array
+    function buildCallMap(string $className, bool $force = false, array &$callMap = [], array &$currentPath = []): array
     {
         static $visitedAssoc = [];
 
+        if ($force) {
+            $visitedAssoc = [];
+        }
+
         if (isset($visitedAssoc[$className])) {
-            return null;
+            return [];
         }
 
         $visitedAssoc[$className] = true;
 
-        $currentPath[] = $className;
+        if (!is_subclass_of($className, AbstractRequest::class)) {
+            $currentPath[] = $className;
+        }
 
         $reflection = new ReflectionClass($className);
 
@@ -164,7 +145,7 @@ class ClientResolver
 
                 if (is_subclass_of($returnTypeName, AbstractResource::class) ||
                     is_subclass_of($returnTypeName, AbstractRequest::class)) {
-                    $this->buildCallMap($returnTypeName, $callMap, $currentPath);
+                    $this->buildCallMap($returnTypeName, false, $callMap, $currentPath);
                 }
             }
         }
@@ -176,46 +157,6 @@ class ClientResolver
         array_pop($currentPath);
 
         return $callMap;
-    }
-
-    private function collectClientResources(string $clientClass): Collection
-    {
-        return $this->collectResources($clientClass, AbstractResource::class)
-            ->mapWithKeys(function (string $resourceClass) use ($clientClass) {
-                return [
-                    $resourceClass => collect([
-                        'client' => $clientClass,
-                        'resource' => $resourceClass,
-                        'requests' => $this->collectResources($resourceClass, AbstractRequest::class)
-                    ])
-                ];
-            });
-    }
-
-    private function collectResources(string $sourceClass, string $targetClass): Collection
-    {
-        $reflectionClass = new ReflectionClass($sourceClass);
-
-        $methods = $reflectionClass->getMethods();
-
-        $result = collect();
-
-        foreach ($methods as $method) {
-            $returnType = $method->getReturnType();
-
-            if ($returnType instanceof ReflectionNamedType) {
-
-                $returnTypeName = $returnType->getName();
-
-                // Проверяем, является ли возвращаемый тип подклассом $parentClassName
-                if (is_subclass_of($returnTypeName, $targetClass)) {
-
-                    $result->push($returnTypeName);
-                }
-            }
-        }
-
-        return $result;
     }
 
     private static function getInstance(): ClientResolver

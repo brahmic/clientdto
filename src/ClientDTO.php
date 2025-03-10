@@ -3,6 +3,7 @@
 namespace Brahmic\ClientDTO;
 
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
+use Brahmic\ClientDTO\Contracts\ChainInterface;
 use Brahmic\ClientDTO\Contracts\ClientDTOInterface;
 use Brahmic\ClientDTO\Contracts\ClientRequestInterface;
 use Brahmic\ClientDTO\Response\ClientResponse;
@@ -17,7 +18,7 @@ use Spatie\LaravelData\Data;
 /**
  *
  */
-class ClientDTO implements ClientDTOInterface
+class ClientDTO implements ClientDTOInterface, ChainInterface
 {
     use QueryParams, Headers, Timeout, BodyFormat;
 

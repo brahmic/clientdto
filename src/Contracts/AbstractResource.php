@@ -6,7 +6,7 @@ use Brahmic\ClientDTO\ClientDTO;
 use Brahmic\ClientDTO\Support\ClientResolver;
 use Brahmic\ClientDTO\Traits\QueryParams;
 
-abstract class AbstractResource
+abstract class AbstractResource implements ChainInterface
 {
     use QueryParams;
 

@@ -30,6 +30,7 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
 
     public function toArray(): array
     {
+
         $result = [
             'result' => $this->resolved,
             'error' => $this->error,

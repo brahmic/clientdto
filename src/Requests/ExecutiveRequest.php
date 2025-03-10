@@ -3,6 +3,7 @@
 namespace Brahmic\ClientDTO\Requests;
 
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
+use Brahmic\ClientDTO\Contracts\ChainInterface;
 use Brahmic\ClientDTO\Support\Log;
 use Brahmic\ClientDTO\Support\RequestHelper;
 use GuzzleHttp\Promise\PromiseInterface;
@@ -28,19 +29,16 @@ class ExecutiveRequest implements Arrayable
 
     private array $files = [];
 
-    private array $chain = [];
-
     private string $bodyFormat; // 'json', 'form', 'multipart'
 
     private string $fullUrl;
-    
+
     public function __construct(readonly private AbstractRequest $clientRequest)
     {
         $clientRequest->validateRequest();
 
         $this->setQueryParams();
         $this->setBodyParams();
-        $this->setChain();
 
         $this->url = $this->clientRequest->getUrl();
         $this->fullUrl = $this->getUrlWithQueryParams();
@@ -60,20 +58,6 @@ class ExecutiveRequest implements Arrayable
             'post' => $this->post(),
             default => throw new InvalidArgumentException("Unsupported request type."),
         };
-    }
-
-    private function setChain(): void
-    {
-        $this->chain = array_filter([
-            $this->getClientRequest()->getClientDTO(),
-            $this->getClientRequest()->getResource(),
-            $this->clientRequest,
-        ]);
-    }
-
-    public function getChain(): array
-    {
-        return $this->chain;
     }
 
     public function getAttempts(): int
@@ -117,6 +101,7 @@ class ExecutiveRequest implements Arrayable
 
     private function setBodyParams(): void
     {
+        //todo chain
         $this->body = array_merge(
             $this->clientRequest->bodyParams(),
         );
@@ -124,12 +109,11 @@ class ExecutiveRequest implements Arrayable
 
     private function setQueryParams(): void
     {
-        $this->queryParams = array_merge(
-            $this->clientRequest->queryParams(),
-            $this->clientRequest->getQueryParams(),
-            $this->clientRequest->getResource()->getQueryParams(),
-            $this->clientRequest->getClientDTO()?->getQueryParams()
-        );
+        $chainQueryParams = $this->clientRequest->getChain()->reduce(function ($carry, ChainInterface $chain) {
+            return array_merge($carry, $chain->getQueryParams());
+        }, []);
+
+        $this->queryParams = array_merge($chainQueryParams, $this->clientRequest->queryParams());
     }
 
     //todo helper

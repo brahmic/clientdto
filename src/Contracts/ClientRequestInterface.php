@@ -14,7 +14,6 @@ interface ClientRequestInterface
     //public function transforming(mixed $data): mixed
 
     public static function getDtoClass(): null|string|Data;
-    public function getResource(): AbstractResource;
 
     public function toArray(): array;
 
