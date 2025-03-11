@@ -62,6 +62,7 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
 
     public function toResponse($request): \Illuminate\Http\JsonResponse|\Symfony\Component\HttpFoundation\Response
     {
+
         return response()->json($this->toArray(), $this->status);
     }
 

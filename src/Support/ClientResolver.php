@@ -20,6 +20,7 @@ class ClientResolver
 
     public static function registerClient(ClientDTO|string $clientDTO, bool $force = false): Collection
     {
+
         $resolver = self::getInstance();
 
         $clientDTOClass = is_object($clientDTO) ? $clientDTO::class : $clientDTO;
@@ -75,6 +76,8 @@ class ClientResolver
 
     private function extractClassName(string $resourceClass): string
     {
+        //dump($this->extractRegistered($resourceClass));
+        //dd($resourceClass);
         return $this->extractRegistered($resourceClass)['client'];
     }
 
@@ -110,7 +113,7 @@ class ClientResolver
             $this->getKey($clientClass) => $clientClass,
             ...$this->buildCallMap($clientClass, $force),
         ]);
-
+//dd($result);
         Cache::put($cacheKey, $result, Carbon::now()->addMonth());
 
         return $result;
@@ -130,10 +133,12 @@ class ClientResolver
         }
 
         $visitedAssoc[$className] = true;
+//
+//        if (!is_subclass_of($className, AbstractRequest::class)) {
+//
+//        }
 
-        if (!is_subclass_of($className, AbstractRequest::class)) {
-            $currentPath[] = $className;
-        }
+        $currentPath[] = $className;
 
         $reflection = new ReflectionClass($className);
 
@@ -151,7 +156,7 @@ class ClientResolver
         }
 
         if (is_subclass_of($className, AbstractRequest::class)) {
-            $callMap[$className] = $currentPath;
+            $callMap[$className] = array_slice($currentPath, 0, -1);
         }
 
         array_pop($currentPath);

@@ -351,9 +351,13 @@ class ResponseResolver
 
     protected function handleGenericException(Throwable $exception): void
     {
-        $this->setResponseStatus($exception->getCode(), $exception->getMessage());
+        $this->setResponseStatus(HttpResponse::HTTP_INTERNAL_SERVER_ERROR, 'Internal server error, please contact the service administrator');
 
-//        // todo !!!!в конфликте!!!
+        if (app()->hasDebugModeEnabled()) {
+            $this->details = [$exception->getMessage()];
+        }
+
+        // todo !!!!в конфликте!!!
 //        if (app()->hasDebugModeEnabled()) {
 //            throw $exception;
 //        }
