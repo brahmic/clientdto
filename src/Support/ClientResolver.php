@@ -76,9 +76,7 @@ class ClientResolver
 
     private function extractClassName(string $resourceClass): string
     {
-        //dump($this->extractRegistered($resourceClass));
-        //dd($resourceClass);
-        return $this->extractRegistered($resourceClass)['client'];
+        return $this->extractRegistered($resourceClass)->get($this->getKey($resourceClass));
     }
 
     private function getResourceMap(string $resourceClass): Collection
@@ -113,7 +111,7 @@ class ClientResolver
             $this->getKey($clientClass) => $clientClass,
             ...$this->buildCallMap($clientClass, $force),
         ]);
-//dd($result);
+
         Cache::put($cacheKey, $result, Carbon::now()->addMonth());
 
         return $result;
