@@ -183,13 +183,20 @@ class ResponseResolver
             try {
 
                 if (is_subclass_of($class, Data::class)) {
+
+                    $transformed = $this->handleDto($class, $transformed);
+//dd($transformed);
                     $dto = $class::validateAndCreate($transformed);
+
                 } else {
 
                     $dto = new $class($transformed);
 
                     if ($dtoCollectionOf = $this->getDtoCollectionOf($this->getClientRequest()::class)) {
                         $dto = $dto->map(function ($value) use ($dtoCollectionOf) {
+
+                            $value = $this->handleDto($dtoCollectionOf->class, $value);
+
                             return $dtoCollectionOf->class::validateAndCreate($value);
                         });
                     }
@@ -262,6 +269,12 @@ class ResponseResolver
     {
         return method_exists($object, 'handle') ? $object->handle($data, $this->clientRequest) : $data;
     }
+
+    private function handleDto(string $class, mixed $data): mixed
+    {
+        return method_exists($class, 'handle') ? $class::handle($data, $this->clientRequest) : $data;
+    }
+
 
     private function nextAttempt(): void
     {
@@ -400,9 +413,9 @@ class ResponseResolver
         }
 
         // todo !!!!в конфликте!!!
-//        if (app()->hasDebugModeEnabled()) {
-//            throw $exception;
-//        }
+        if (app()->hasDebugModeEnabled()) {
+            throw $exception;
+        }
 
     }
 
