@@ -8,12 +8,7 @@ use Spatie\LaravelData\Data;
 
 interface ClientRequestInterface
 {
-    // Count of additional attempts
-
-    // Transformation before of the DTO creating
-    //public function transforming(mixed $data): mixed
-
-    public static function getDtoClass(): null|string|Data;
+    public function resolveDtoClass(): null|string|Data;
 
     public function toArray(): array;
 

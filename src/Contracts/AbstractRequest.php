@@ -30,7 +30,9 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
 
     public const ?string URI = null;
 
-    public const ?string DTO = null;
+    //public const ?string DTO = null;
+
+    protected ?string $dto = null;
 
     public const string NAME = 'Абстрактный запрос';
 
@@ -55,21 +57,9 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
         return $this->hasBeenExecuted;
     }
 
-    /**
-     */
-    public static function getDtoClass(): ?string
-    {
-        if (static::DTO) {
-
-            return static::DTO;
-        }
-
-        return null;
-    }
-
     public function resolveDtoClass(): string
     {
-        return $this->getDtoClass();
+        return $this->dto;
     }
 
     public function getAttempts(): int

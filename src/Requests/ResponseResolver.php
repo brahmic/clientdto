@@ -2,6 +2,8 @@
 
 namespace Brahmic\ClientDTO\Requests;
 
+use Bezopasno\IrbisClient\Resources\Person\DTO\Courts\GeneralJurisdiction\CategoryPreviewDto;
+use Bezopasno\IrbisClient\Support\Attributes\CollectionOf;
 use Brahmic\ClientDTO\Contracts\PaginatedRequest;
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientRequestInterface;
@@ -17,6 +19,9 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
+use ReflectionProperty;
+use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Exceptions\CannotCreateData;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Throwable;
@@ -171,18 +176,27 @@ class ResponseResolver
     {
         $transformed = $this->prepare($data);
 
-        $class = $this->getClientRequest()::getDtoClass();
+        $class = $this->getClientRequest()->resolveDtoClass();
 
         if ($transformed && $class) {
 
             try {
 
-                $dto = $class::validateAndCreate($transformed);
+                if (is_subclass_of($class, Data::class)) {
+                    $dto = $class::validateAndCreate($transformed);
+                } else {
+
+                    $dto = new $class($transformed);
+
+                    if ($dtoCollectionOf = $this->getDtoCollectionOf($this->getClientRequest()::class)) {
+                        $dto = $dto->map(function ($value) use ($dtoCollectionOf) {
+                            return $dtoCollectionOf->class::validateAndCreate($value);
+                        });
+                    }
+                }
 
             } catch (ValidationException $exception) {
-
                 throw new CreateDtoValidationException($exception->validator, $this->response)->setClass($class);
-
             }
 
             $this->log->add("DTO `" . class_basename($dto) . "` resolved!");
@@ -191,6 +205,34 @@ class ResponseResolver
         }
 
         return $transformed;
+    }
+
+    private function getDtoCollectionOf(string $className): ?CollectionOf
+    {
+        // Проверяем, существует ли класс
+        if (!class_exists($className)) {
+            throw new InvalidArgumentException("Class {$className} does not exist.");
+        }
+
+        // Проверяем, существует ли свойство в классе
+        if (!property_exists($className, 'dto')) {
+            throw new InvalidArgumentException("Property {'dto'} does not exist in class {$className}.");
+        }
+
+        // Создаем ReflectionProperty для свойства
+        $reflectionProperty = new ReflectionProperty($className, 'dto');
+
+        // Получаем атрибуты свойства
+        $attributes = $reflectionProperty->getAttributes(CollectionOf::class);
+
+        // Если атрибут найден, возвращаем его экземпляр
+        if (!empty($attributes)) {
+            return $attributes[0]->newInstance();
+        }
+
+        $this->log->add("CollectionOf attribute not specified for `dto` property in class {$className}.");
+
+        return null;
     }
 
     private function prepare(mixed $data): mixed
