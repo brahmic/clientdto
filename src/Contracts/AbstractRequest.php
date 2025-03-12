@@ -57,7 +57,7 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
         return $this->hasBeenExecuted;
     }
 
-    public function resolveDtoClass(): string
+    public function resolveDtoClass(): null|string|Data
     {
         return $this->dto;
     }
