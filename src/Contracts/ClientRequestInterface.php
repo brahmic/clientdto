@@ -4,7 +4,7 @@ namespace Brahmic\ClientDTO\Contracts;
 
 
 use Brahmic\ClientDTO\Response\ClientResponse;
-use Spatie\LaravelData\Data;
+use Brahmic\ClientDTO\Support\Data;
 
 interface ClientRequestInterface
 {

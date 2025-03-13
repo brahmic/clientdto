@@ -13,7 +13,7 @@ use Brahmic\ClientDTO\Traits\QueryParams;
 use Brahmic\ClientDTO\Traits\Headers;
 use Brahmic\ClientDTO\Traits\Timeout;
 use Illuminate\Http\Client\Response;
-use Spatie\LaravelData\Data;
+use Brahmic\ClientDTO\Support\Data;
 
 /**
  *

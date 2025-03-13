@@ -19,7 +19,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use ReflectionProperty;
-use Spatie\LaravelData\Data;
+use Brahmic\ClientDTO\Support\Data;
 use Spatie\LaravelData\Exceptions\CannotCreateData;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Throwable;

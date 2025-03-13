@@ -8,7 +8,7 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Collection;
 use ReflectionClass;
 use ReflectionProperty;
-use Spatie\LaravelData\Data;
+use Brahmic\ClientDTO\Support\Data;
 
 class RequestHelper
 {

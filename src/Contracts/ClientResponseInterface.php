@@ -2,7 +2,7 @@
 
 namespace Brahmic\ClientDTO\Contracts;
 
-use Spatie\LaravelData\Data;
+use Brahmic\ClientDTO\Support\Data;
 
 interface ClientResponseInterface
 {

@@ -16,7 +16,7 @@ use Brahmic\ClientDTO\Traits\Timeout;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
-use Spatie\LaravelData\Data;
+use Brahmic\ClientDTO\Support\Data;
 use Illuminate\Contracts\Support\Arrayable;
 
 
