@@ -352,7 +352,6 @@ class ResponseResolver
     protected function handleCreateDtoValidationException(CreateDtoValidationException $exception): void
     {
         if (app()->hasDebugModeEnabled()) {
-            //dd($exception);
             $message = "The data received does not correspond to the declaration of {$exception->getClass()}. Please check the specified DTO class, also `handle` method of the client, resources or request";
             $this->details = $exception->validator->errors()->all();
         } else {
