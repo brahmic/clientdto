@@ -223,12 +223,13 @@ class PaginatedRequest
 
         $result = $this->fetch();
 
-        if ($this->to > $this->from) {
-            $this->rows = $this->number - (($this->to - $this->from + 1) * $this->rows);
-            $this->from = $this->to + 1;
-            $this->to = $this->from;
-            $result = $result->merge($this->fetch());
-        }
+//        if ($this->to > $this->from) {
+//            $this->rows = $this->number - (($this->to - $this->from + 1) * $this->rows);
+//            $this->from = $this->to + 1;
+//            $this->to = $this->from;
+//            dd($result);
+//            $result = $result->merge($this->fetch());
+//        }
 
         return $result;
     }

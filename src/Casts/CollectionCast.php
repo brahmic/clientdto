@@ -31,9 +31,10 @@ class CollectionCast implements Cast
                     }
                 }
 
-            } else {
-                throw new \Exception("In class `{$context->dataClass}` You need to specify the DTO class for collection items in the WithCast attribute after CollectionCast as the second argument, or add a static method collectionCast that returns an array with casts for the property `{$property->name}`.");
             }
+//            else {
+//                throw new \Exception("In class `{$context->dataClass}` You need to specify the DTO class for collection items in the WithCast attribute after CollectionCast as the second argument, or add a static method collectionCast that returns an array with casts for the property `{$property->name}`.");
+//            }
         }
 
         return collect($value)->map(fn($item) => $class ? $class::validateAndCreate($item) : $item);

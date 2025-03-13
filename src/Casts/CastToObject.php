@@ -2,7 +2,7 @@
 
 namespace Brahmic\ClientDTO\Casts;
 
-use Bezopasno\IrbisClient\Resources\Person\DTO\Courts\Arbitrage\CasePerson;
+use Bezopasno\IrbisClient\Resources\Person\Dto\Courts\Arbitrage\CasePerson;
 use Brahmic\ClientDTO\Support\Data;
 use Spatie\LaravelData\Casts\Cast;
 use Spatie\LaravelData\Support\Creation\CreationContext;
