@@ -9,6 +9,7 @@ use Brahmic\ClientDTO\Response\ClientResponse;
 use Brahmic\ClientDTO\Support\ResponseManager;
 use Exception;
 use Illuminate\Support\Collection;
+use InvalidArgumentException;
 
 
 class PaginatedRequest
@@ -115,7 +116,7 @@ class PaginatedRequest
         }
 
         if (is_null($this->totalItems) || is_null($this->totalPages)) {
-            throw new PreflightRequestException("Can't complete the paginated request. Use `preflight` method for set `totalItems` and `totalPages`");
+            throw new InvalidArgumentException("Can't complete the paginated request. Use `preflight` method for set `totalItems` and `totalPages`");
         }
 
     }

@@ -67,10 +67,9 @@ class ResponseManager
             app()->hasDebugModeEnabled() ? $exception->getMessage() : 'Internal server error, please contact the service administrator'
         );
 
-        $this->details = $exception->getClientResponse()?->toArray();
-
-//        if (app()->hasDebugModeEnabled()) {
-//        }
+        if (app()->hasDebugModeEnabled()) {
+            $this->details = $exception->getClientResponse()->toArray();
+        }
 
     }
 

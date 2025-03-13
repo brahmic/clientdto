@@ -37,6 +37,15 @@ class CollectionCast implements Cast
 //            }
         }
 
-        return collect($value)->map(fn($item) => $class ? $class::validateAndCreate($item) : $item);
+
+        return collect($value)->map(function ($item) use ($class) {
+            if ($class) {
+                if (method_exists($class, 'transformBeforeCollectionCast')) {
+                    $item = $class::transformBeforeCollectionCast($item);
+                }
+                return $class::validateAndCreate($item);
+            }
+            return $item;
+        });
     }
 }
