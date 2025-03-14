@@ -187,14 +187,17 @@ class ResponseResolver
                     $dto = $class::validateAndCreate($transformed);
 
                 } else {
+
                     /*
-                          * If another class is specified, then we create the final object through the constructor,
-                          * or if there is a CollectionOf attribute, then we create the collection in a special
-                          * way through the cast
-                          */
+                     * If another class is specified, then we create the final object through the constructor,
+                     * or if there is a CollectionOf attribute, then we create the collection in a special
+                     * way through the cast
+                     */
                     $dto = new $class($transformed);
 
                     if ($dtoCollectionOf = $this->getDtoCollectionOf($this->getClientRequest()::class)) {
+
+
                         $dto = $dto->map(function ($value) use ($dtoCollectionOf) {
 
                             $value = $this->handleDto($dtoCollectionOf->class, $value);
