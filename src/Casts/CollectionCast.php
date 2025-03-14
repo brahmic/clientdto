@@ -40,6 +40,9 @@ class CollectionCast implements Cast
 
         return collect($value)->map(function ($item) use ($class) {
             if ($class) {
+
+                $item = is_array($item) ? $item : ['value' => $item];
+
                 if (method_exists($class, 'transformBeforeCollectionCast')) {
                     $item = $class::transformBeforeCollectionCast($item);
                 }
