@@ -183,7 +183,9 @@ class ResponseResolver
                 if (is_subclass_of($class, Data::class)) {
 
                     $transformed = $this->handleDto($class, $transformed);
-
+dump($class);
+dump($transformed);
+dd($class::validateAndCreate($transformed));
                     $dto = $class::validateAndCreate($transformed);
 
                 } else {
