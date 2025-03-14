@@ -19,6 +19,7 @@ class CollectionCast implements Cast
 
     public function cast(DataProperty $property, mixed $value, array $properties, CreationContext $context): Collection
     {
+        return collect($value);
         /** @var Data $class */
         if (!$class = $this->class) {
             if (method_exists($context->dataClass, 'collectionCast')) {
