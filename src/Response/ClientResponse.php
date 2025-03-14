@@ -3,6 +3,7 @@
 namespace Brahmic\ClientDTO\Response;
 
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
+use Brahmic\ClientDTO\Contracts\ClientRequestInterface;
 use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
 use Brahmic\ClientDTO\Requests\ExecutiveRequest;
 use Brahmic\ClientDTO\Support\Log;
@@ -28,21 +29,10 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
         $this->error = is_null($this->resolved);
     }
 
-    public function toArray(): array
+    protected function getDebugInfo(?ClientRequestInterface $clientRequest = null): ?array
     {
-
-        $result = [
-            'result' => $this->resolved,
-            'error' => $this->error,
-            'message' => $this->message,
-        ];
-
-        if ($this->error && !empty($this->details)) {
-            $result['details'] = $this->details;
-        }
-
-        if ($this->clientRequest?->isDebug()) {
-            $result['debug'] = [
+        if ($clientRequest?->isDebug()) {
+            return [
                 'url' => $this->executiveRequest?->getUrlWithQueryParams(),
                 'clientRequest' => [
                     'class' => $this->clientRequest::class,
@@ -55,6 +45,28 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
                 'status' => $this->status,
                 'log' => $this->log->all(),
             ];
+        }
+        return null;
+    }
+
+    public function toArray(): array
+    {
+
+        $result = [
+            'result' => $this->resolved,
+            'error' => $this->error,
+            'message' => $this->message,
+        ];
+
+        if ($this->error && !empty($this->details)) {
+            $result['details'] = $this->details;
+        }
+        if ($this->clientRequest) {
+            $result['requestTitle'] = $this->clientRequest->getName();
+        }
+
+        if ($debugInfo = $this->getDebugInfo($this->clientRequest)) {
+            $result['debug'] = $debugInfo;
         }
 
         return $result;

@@ -105,6 +105,8 @@ class PaginatedRequest
 
             $clone = clone($this->clientRequest);
 
+            $clone->setRows($this->rows);
+
             if ($resolved = $clone->firstPage()) {
 
                 $this->clientRequest->preflight($this, $resolved);
@@ -220,19 +222,15 @@ class PaginatedRequest
             $this->rows = $this->number;
         }
 
+        $maxNumber = $this->totalPages * $this->rows;
+
+        if ($this->number > $maxNumber) {
+            $this->number = $maxNumber;
+        }
+
         $this->to = (int)floor($this->number / $this->rows);
 
-        $result = $this->fetch();
-
-//        if ($this->to > $this->from) {
-//            $this->rows = $this->number - (($this->to - $this->from + 1) * $this->rows);
-//            $this->from = $this->to + 1;
-//            $this->to = $this->from;
-//            dd($result);
-//            $result = $result->merge($this->fetch());
-//        }
-
-        return $result;
+        return $this->fetch();
     }
 
     /**
@@ -318,11 +316,15 @@ class PaginatedRequest
         return $this;
     }
 
-    public function number(int $number): static
+    public function number(int $number, ?int $rows = null): static
     {
         $this->from = 1;
 
         $this->number = $number;
+
+        if ($rows) {
+            $this->rows = $rows;
+        }
 
         $this->strategy = PaginatedStrategy::Number;
 
