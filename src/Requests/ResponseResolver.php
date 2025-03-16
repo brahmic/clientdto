@@ -184,8 +184,7 @@ class ResponseResolver
 
                     $transformed = $this->handleDto($class, $transformed);
 
-                    $dto = $class::validateAndCreate($transformed);
-
+                    $dto = $this->validateAndCreate($class, $transformed);
                 } else {
 
                     /*
@@ -197,12 +196,9 @@ class ResponseResolver
 
                     if ($dtoCollectionOf = $this->getDtoCollectionOf($this->getClientRequest()::class)) {
 
-
                         $dto = $dto->map(function ($value) use ($dtoCollectionOf) {
-
                             $value = $this->handleDto($dtoCollectionOf->class, $value);
-
-                            return $dtoCollectionOf->class::validateAndCreate($value);
+                            return $this->validateAndCreate($dtoCollectionOf->class, $value);
                         });
                     }
                 }
@@ -217,6 +213,13 @@ class ResponseResolver
         }
 
         return $transformed;
+    }
+
+    private function validateAndCreate(string $class, mixed $data): mixed
+    {
+        /** @var Data $class */
+
+        return $class::validateAndCreate($data);
     }
 
     private function getDtoCollectionOf(string $className): ?CollectionOf
