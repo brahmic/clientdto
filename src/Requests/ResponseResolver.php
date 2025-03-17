@@ -470,9 +470,9 @@ class ResponseResolver
         }
 
         // todo !!!!в конфликте!!!
-        if (app()->hasDebugModeEnabled()) {
-            throw $exception;
-        }
+//        if (app()->hasDebugModeEnabled()) {
+//            throw $exception;
+//        }
 
     }
 
