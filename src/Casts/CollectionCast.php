@@ -11,15 +11,13 @@ use Spatie\LaravelData\Support\DataProperty;
 class CollectionCast implements Cast
 {
 
-    public function __construct(
-        private ?string $class = null,
-    )
+    public function __construct(private ?string $class = null)
     {
-
     }
 
     public function cast(DataProperty $property, mixed $value, array $properties, CreationContext $context): Collection
     {
+
         /** @var Data $class */
         if (!$class = $this->class) {
             if (method_exists($context->dataClass, 'collectionCast')) {
@@ -38,18 +36,20 @@ class CollectionCast implements Cast
 //            }
         }
 
-
         return collect($value)->map(function ($item) use ($class) {
             if ($class) {
 
                 $item = is_array($item) ? $item : ['value' => $item];
-
-                if (method_exists($class, 'transformBeforeCollectionCast')) {
-                    $item = $class::transformBeforeCollectionCast($item);
-                }
+                $item = $this->handleDto($class, $item);
                 return $class::validateAndCreate($item);
             }
             return $item;
         });
     }
+
+    private function handleDto(string $class, mixed $data): mixed
+    {
+        return method_exists($class, 'handle') ? $class::handle($data) : $data;
+    }
+
 }
