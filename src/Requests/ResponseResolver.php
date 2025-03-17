@@ -2,10 +2,12 @@
 
 namespace Brahmic\ClientDTO\Requests;
 
-use Bezopasno\IrbisClient\Support\Attributes\CollectionOf;
+use Brahmic\ClientDTO\Attributes\CollectionOf;
+use Brahmic\ClientDTO\Attributes\Wrapped;
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientRequestInterface;
 use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
+use Brahmic\ClientDTO\Contracts\DtoWrapperInterface;
 use Brahmic\ClientDTO\Exceptions\AttemptNeededException;
 use Brahmic\ClientDTO\Exceptions\CreateDtoValidationException;
 use Brahmic\ClientDTO\Response\ClientResponse;
@@ -184,7 +186,20 @@ class ResponseResolver
 
                     $transformed = $this->handleDto($class, $transformed);
 
-                    $dto = $this->validateAndCreate($class, $transformed);
+                    /** @var  $wrapped */
+                    if ($wrapped = $this->getDtoWrapper($this->getClientRequest()::class)) {
+
+                        if (is_subclass_of($class, DtoWrapperInterface::class)) {
+                            $class::setDto($wrapped->class);
+                            $dto = $this->validateAndCreate($class, $transformed);
+                        } else {
+                            throw new Exception('If the `Wrapped` attribute is specified, then `$dto` must implement the `DtoWrapperInterface` interface.');
+                        }
+
+                    } else {
+                        $dto = $this->validateAndCreate($class, $transformed);
+                    }
+
                 } else {
 
                     /*
@@ -224,23 +239,34 @@ class ResponseResolver
 
     private function getDtoCollectionOf(string $className): ?CollectionOf
     {
+        return $this->getAttributes($className, 'dto', CollectionOf::class);
+    }
+
+
+    private function getDtoWrapper(string $className): ?Wrapped
+    {
+        return $this->getAttributes($className, 'dto', Wrapped::class);
+    }
+
+    private function getAttributes(string $propertyClass, string $propertyName, string $attributeClass): mixed
+    {
         // Проверяем, существует ли свойство в классе
-        if (!property_exists($className, 'dto')) {
-            throw new InvalidArgumentException("Property {'dto'} does not exist in class {$className}.");
+        if (!property_exists($propertyClass, $propertyName)) {
+            throw new InvalidArgumentException("Property {$propertyName} does not exist in class {$propertyClass}.");
         }
 
         // Создаем ReflectionProperty для свойства
-        $reflectionProperty = new ReflectionProperty($className, 'dto');
+        $reflectionProperty = new ReflectionProperty($propertyClass, $propertyName);
 
         // Получаем атрибуты свойства
-        $attributes = $reflectionProperty->getAttributes(CollectionOf::class);
+        $attributes = $reflectionProperty->getAttributes($attributeClass);
 
         // Если атрибут найден, возвращаем его экземпляр
         if (!empty($attributes)) {
             return $attributes[0]->newInstance();
         }
 
-        $this->log->add("CollectionOf attribute not specified for `dto` property in class {$className}.");
+        $this->log->add("CollectionOf attribute not specified for `dto` property in class {$propertyClass}.");
 
         return null;
     }
