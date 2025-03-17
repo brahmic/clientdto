@@ -182,10 +182,13 @@ class ResponseResolver
 
         //*************************************************************************************************************//
         // Extract data using dot notation
-        $collectionInputName = $this->getCollectionInputName($this->getClientRequest()::class);
+        $collectionInputName = $this->getExtractInputFrom($this->getClientRequest()::class);
 
         if ($collectionInputName) {
-            if (!$transformed = Arr::get($transformed, $collectionInputName->filedName)) {
+
+            $transformed = Arr::get($transformed, $collectionInputName->filedName);
+
+            if (!is_array($transformed)) {
                 throw new Exception("Unable to extract data by key `$collectionInputName->filedName` in ExtractInputFrom attribute for request {$this->getClientRequestClass()}.");
             };
         }
@@ -260,7 +263,7 @@ class ResponseResolver
     {
         return $this->getAttributes($className, 'dto', CollectionOf::class);
     }
-    private function getCollectionInputName(string $className): ?ExtractInputFrom
+    private function getExtractInputFrom(string $className): ?ExtractInputFrom
     {
         return $this->getAttributes($className, 'dto', ExtractInputFrom::class);
     }
