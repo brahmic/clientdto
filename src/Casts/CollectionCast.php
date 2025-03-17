@@ -40,14 +40,14 @@ class CollectionCast implements Cast
             if ($class) {
 
                 $item = is_array($item) ? $item : ['value' => $item];
-                $item = $this->handleDto($class, $item);
+                $item = $this->handle($class, $item);
                 return $class::validateAndCreate($item);
             }
             return $item;
         });
     }
 
-    private function handleDto(string $class, mixed $data): mixed
+    private function handle(string $class, mixed $data): mixed
     {
         return method_exists($class, 'handle') ? $class::handle($data) : $data;
     }

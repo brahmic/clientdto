@@ -197,7 +197,7 @@ class ResponseResolver
 
                 if (is_subclass_of($class, Data::class)) {
 
-                    $transformed = $this->handleDto($class, $transformed);
+                    $transformed = $this->handle($class, $transformed);
 
                     /** @var  $wrapped */
                     if ($wrapped = $this->getDtoWrapper($this->getClientRequest()::class)) {
@@ -231,7 +231,7 @@ class ResponseResolver
                     if ($dtoCollectionOf) {
 
                         $dto = $dto->map(function ($value) use ($dtoCollectionOf) {
-                            $value = $this->handleDto($dtoCollectionOf->class, $value);
+                            $value = $this->handle($dtoCollectionOf->class, $value);
                             return $this->validateAndCreate($dtoCollectionOf->class, $value);
                         });
                     }
@@ -317,16 +317,12 @@ class ResponseResolver
         }
     }
 
-    private function handle(object $object, mixed $data): mixed
+    private function handle(object|string $target, mixed $data): mixed
     {
-        return method_exists($object, 'handle') ? $object->handle($data, $this->clientRequest) : $data;
-    }
+        $class = is_object($target) ? get_class($target) : $target;
 
-    private function handleDto(string $class, mixed $data): mixed
-    {
         return method_exists($class, 'handle') ? $class::handle($data, $this->clientRequest) : $data;
     }
-
 
     private function nextAttempt(): void
     {
