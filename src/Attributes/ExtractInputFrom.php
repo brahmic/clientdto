@@ -6,19 +6,15 @@ use Attribute;
 use Brahmic\ClientDTO\Support\Data;
 
 #[Attribute]
-class CollectionOf
+class ExtractInputFrom
 {
     /** @var string|Data  */
-    public string $class;
-
-    public ?string $filedName;
+    public string $filedName;
 
     public function __construct(
          string $class,
-         ?string $filedName = null,
     )
     {
-        $this->class = $class;
-        $this->filedName = $filedName;
+        $this->filedName = $class;
     }
 }

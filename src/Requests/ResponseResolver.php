@@ -2,6 +2,7 @@
 
 namespace Brahmic\ClientDTO\Requests;
 
+use Brahmic\ClientDTO\Attributes\ExtractInputFrom;
 use Brahmic\ClientDTO\Attributes\CollectionOf;
 use Brahmic\ClientDTO\Attributes\Wrapped;
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
@@ -18,6 +19,7 @@ use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use ReflectionProperty;
@@ -178,6 +180,18 @@ class ResponseResolver
 
         $class = $this->getClientRequest()->resolveDtoClass();
 
+        //*********************************************************************************//
+        // Extract data using dot notation
+        $collectionInputName = $this->getCollectionInputName($this->getClientRequest()::class);
+
+        if ($collectionInputName) {
+            if (!$transformed = Arr::get($transformed, $collectionInputName->filedName)) {
+                throw new Exception("Unable to extract data by key `$collectionInputName->filedName` in ExtractInputFrom attribute for request {$this->getClientRequestClass()}.");
+            };
+        }
+        //*********************************************************************************//
+
+
         if ($transformed && $class) {
 
             try {
@@ -202,6 +216,12 @@ class ResponseResolver
 
                 } else {
 
+                    $dtoCollectionOf = $this->getDtoCollectionOf($this->getClientRequest()::class);
+
+                    if ($dtoCollectionOf && $dtoCollectionOf->filedName) {
+                        $transformed = $transformed[$dtoCollectionOf->filedName];
+                    }
+
                     /*
                      * If another class is specified, then we create the final object through the constructor,
                      * or if there is a CollectionOf attribute, then we create the collection in a special
@@ -209,7 +229,7 @@ class ResponseResolver
                      */
                     $dto = new $class($transformed);
 
-                    if ($dtoCollectionOf = $this->getDtoCollectionOf($this->getClientRequest()::class)) {
+                    if ($dtoCollectionOf) {
 
                         $dto = $dto->map(function ($value) use ($dtoCollectionOf) {
                             $value = $this->handleDto($dtoCollectionOf->class, $value);
@@ -240,6 +260,10 @@ class ResponseResolver
     private function getDtoCollectionOf(string $className): ?CollectionOf
     {
         return $this->getAttributes($className, 'dto', CollectionOf::class);
+    }
+    private function getCollectionInputName(string $className): ?ExtractInputFrom
+    {
+        return $this->getAttributes($className, 'dto', ExtractInputFrom::class);
     }
 
 
@@ -354,6 +378,12 @@ class ResponseResolver
     {
         return $this->executiveRequest->getClientRequest();
     }
+
+    private function getClientRequestClass(): string
+    {
+        return $this->executiveRequest->getClientRequest()::class;
+    }
+
 
     private function getAttempts(): int
     {
