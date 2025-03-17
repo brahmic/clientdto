@@ -180,7 +180,7 @@ class ResponseResolver
 
         $class = $this->getClientRequest()->resolveDtoClass();
 
-        //*********************************************************************************//
+        //*************************************************************************************************************//
         // Extract data using dot notation
         $collectionInputName = $this->getCollectionInputName($this->getClientRequest()::class);
 
@@ -189,7 +189,7 @@ class ResponseResolver
                 throw new Exception("Unable to extract data by key `$collectionInputName->filedName` in ExtractInputFrom attribute for request {$this->getClientRequestClass()}.");
             };
         }
-        //*********************************************************************************//
+        //*************************************************************************************************************//
 
 
         if ($transformed && $class) {
