@@ -11,6 +11,7 @@ use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
 use Brahmic\ClientDTO\Contracts\WrappedDtoInterface;
 use Brahmic\ClientDTO\Exceptions\AttemptNeededException;
 use Brahmic\ClientDTO\Exceptions\CreateDtoValidationException;
+use Brahmic\ClientDTO\Exceptions\UnresolvedResponseException;
 use Brahmic\ClientDTO\Response\ClientResponse;
 use Brahmic\ClientDTO\Support\Log;
 use Brahmic\ClientDTO\Support\MimeTypes;
@@ -85,6 +86,8 @@ class ResponseResolver
             $this->handleRequestException($exception);
         } catch (CannotCreateData $exception) {
             $this->handleCannotCreateDataException($exception);
+        } catch (UnresolvedResponseException $exception) {
+            $this->handleUnresolvedResponse($exception);
         } catch (Throwable $exception) {
             $this->handleGenericException($exception);
         }
@@ -316,7 +319,7 @@ class ResponseResolver
     private function validation(object $object, mixed $data): void
     {
         if (method_exists($object, 'validation')) {
-            $object->validation($data, $this->clientRequest);
+            $object->validation($data, $this->clientRequest, $this->response); //todo Context object, also for handle method
         }
     }
 
@@ -459,6 +462,18 @@ class ResponseResolver
     protected function handleCannotCreateDataException(CannotCreateData $exception): void
     {
         $this->setResponseStatus(HttpResponse::HTTP_INTERNAL_SERVER_ERROR, "Can't create object {class} " . $exception->getMessage());
+    }
+
+    protected function handleUnresolvedResponse(UnresolvedResponseException $exception): void
+    {
+        $this->setResponseStatus(HttpResponse::HTTP_INTERNAL_SERVER_ERROR, 'Unresolved request. Incorrect data received from the remote server');
+
+        if (app()->hasDebugModeEnabled()) {
+            $this->details = [
+                'message' => $exception->getMessage(),
+                'received' => $exception->getResponse()->body(),
+            ];
+        }
     }
 
     protected function handleGenericException(Throwable $exception): void
