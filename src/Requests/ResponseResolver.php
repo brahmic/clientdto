@@ -8,7 +8,7 @@ use Brahmic\ClientDTO\Attributes\Wrapped;
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientRequestInterface;
 use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
-use Brahmic\ClientDTO\Contracts\DtoWrapperInterface;
+use Brahmic\ClientDTO\Contracts\WrappedDtoInterface;
 use Brahmic\ClientDTO\Exceptions\AttemptNeededException;
 use Brahmic\ClientDTO\Exceptions\CreateDtoValidationException;
 use Brahmic\ClientDTO\Response\ClientResponse;
@@ -205,8 +205,8 @@ class ResponseResolver
                     /** @var  $wrapped */
                     if ($wrapped = $this->getDtoWrapper($this->getClientRequest()::class)) {
 
-                        if (is_subclass_of($class, DtoWrapperInterface::class)) {
-                            $class::setDto($wrapped->class);
+                        if (is_subclass_of($class, WrappedDtoInterface::class)) {
+                            $class::setWrapped($wrapped->class);
                             $dto = $this->validateAndCreate($class, $transformed);
                         } else {
                             throw new Exception('If the `Wrapped` attribute is specified, then `$dto` must implement the `DtoWrapperInterface` interface.');

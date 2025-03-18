@@ -14,13 +14,17 @@ class RequestHelper
 {
     private static ?RequestHelper $instance = null;
 
-    public function makeQueryString(array|Collection $queryParams, bool $hasQuestion = true): ?string
+    public function makeQueryString(array|Collection $queryParams, $flat = false, bool $hasQuestion = true): ?string
     {
         if ($queryParams instanceof Collection) {
             $queryParams = $queryParams->toArray();
         }
 
         $queryString = (!empty($queryParams) ? http_build_query($queryParams) : null);
+
+        if ($flat) {
+            $queryString = preg_replace('/%5B\d+%5D/', '', $queryString); // Убираем квадратные скобки и индексы;
+        }
 
         return $queryString ? ($hasQuestion ? '?' : null) . $queryString : null;
     }

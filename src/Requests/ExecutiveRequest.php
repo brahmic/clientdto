@@ -113,6 +113,7 @@ class ExecutiveRequest implements Arrayable
             return array_merge($carry, $chain->getQueryParams());
         }, []);
 
+
         $this->queryParams = array_merge($chainQueryParams, $this->clientRequest->queryParams());
     }
 
@@ -136,7 +137,7 @@ class ExecutiveRequest implements Arrayable
             return $matches[0];
         }, $url);
 
-        return $result . RequestHelper::getInstance()->makeQueryString($this->queryParams);
+        return $result . RequestHelper::getInstance()->makeQueryString($this->queryParams, $this->getClientRequest()->isFlatQueryParams());
     }
 
     public function toArray(): array

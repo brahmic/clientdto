@@ -68,8 +68,8 @@ trait QueryParams
         return $this;
     }
 
-    public function getQueryParamsAsString($hasQuestion = true): ?string
+    public function getQueryParamsAsString($flat = false, $hasQuestion = true): ?string
     {
-        return RequestHelper::getInstance()->makeQueryString($this->getQueryParams(), $hasQuestion);
+        return RequestHelper::getInstance()->makeQueryString($this->getQueryParams(), $flat, $hasQuestion);
     }
 }

@@ -34,6 +34,8 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
 
     protected ?string $dto = null;
 
+    protected bool $flatQueryParams = false;
+
     public const string NAME = 'Абстрактный запрос';
 
     //public const string REQUEST_OPTIONS = RequestOptions::JSON;
@@ -178,5 +180,9 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
         return ClientResolver::getChain($this)->push($this);
     }
 
+    public function isFlatQueryParams(): bool
+    {
+        return $this->flatQueryParams;
+    }
 
 }
