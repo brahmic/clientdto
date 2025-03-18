@@ -86,8 +86,16 @@ class ClientResolver
 
     private function extractRegistered(string $class): Collection
     {
-        if (!$client = $this->clients[$this->getKey($class)]) {
-            throw new \Exception("ClientDTO with {$this->getKey($class)} key not registered");
+        $classKey = $this->getKey($class);
+
+        if (empty($this->clients) || !array_key_exists($classKey, $this->clients)) {
+
+            // todo тут надо в карте найти класс от ClientDTO в том же неймспейсе
+            $this->registerClient($classKey, force: true);
+        }
+
+        if (!$client = $this->clients[$classKey]) {
+            throw new \Exception("ClientDTO with {$classKey} key not registered");
         }
 
         return $client;
@@ -111,7 +119,7 @@ class ClientResolver
             $this->getKey($clientClass) => $clientClass,
             ...$this->buildCallMap($clientClass, $force),
         ]);
-
+dd($result);
         Cache::put($cacheKey, $result, Carbon::now()->addMonth());
 
         return $result;
