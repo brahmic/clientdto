@@ -13,10 +13,17 @@
 ### Using examples
 
 ```php
-    //The request data will be automatically filled in from the Request.
-    public function (Person $person) {
-        return $person->children()->send();
+    // In the Controller
+    // Get resource and sets the data from the Request to the Children request 
+    public function (Person $person, Request $request) {
+        return $person->children()->set($request)->send();
     }
+
+    // The request data will be automatically filled in from the Request.
+    public function (Children $children) {
+        return $children->send();
+    }
+
 ```
 
 ```php
