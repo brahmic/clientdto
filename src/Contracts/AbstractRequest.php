@@ -135,7 +135,8 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
     public function assignSetValues(): static
     {
         $this->setterData = $this->getSetMethodArgumentValues();
-        return $this;
+
+        return RequestHelper::getInstance()->fill($this, $this->setterData, true);
     }
 
     public function getSetMethodArgumentValues(): array

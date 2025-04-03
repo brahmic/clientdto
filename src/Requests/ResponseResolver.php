@@ -108,7 +108,6 @@ class ResponseResolver
         $data = $clientRequest->getSetterData();
         if (!empty(array_filter($data))) {
             $clientRequest::validate($data);
-            RequestHelper::getInstance()->fill($clientRequest, $data, true);
         }
     }
 
