@@ -31,7 +31,7 @@ class RequestHelper
         return $queryString ? ($hasQuestion ? '?' : null) . $queryString : null;
     }
 
-    public function fill(object $target, object|array $data, bool $filter = false): mixed
+    public function assign(object $target, object|array $data, bool $filter = false): mixed
     {
         if ($data instanceof Arrayable) {
             $data = $data->toArray();
@@ -132,7 +132,11 @@ class RequestHelper
             }
         }
 
-        $object->{$propertyName} = $value;
+        try {
+            $object->{$propertyName} = $value;
+        } catch (\Throwable $exception) {
+
+        }
     }
 
     private static function getProperties(string $class, ?int $filter = null): Collection

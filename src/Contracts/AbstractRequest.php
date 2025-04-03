@@ -16,9 +16,11 @@ use Brahmic\ClientDTO\Traits\BodyFormat;
 use Brahmic\ClientDTO\Traits\QueryParams;
 use Brahmic\ClientDTO\Traits\Timeout;
 use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use phpDocumentor\Reflection\Exception;
 
 
 abstract class AbstractRequest extends Data implements ClientRequestInterface, ChainInterface
@@ -47,6 +49,8 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
     private bool $hasBeenExecuted = false;
     private ?ClientResponseInterface $response = null;
     private array $setterData = [];
+
+    private array $exceptions = [];
 
 
     public function send(): ClientResponseInterface|ClientResponse
@@ -120,23 +124,30 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
      * @param object|array $data
      * @param bool $filter
      * @return $this
-     * @deprecated
      */
-    public function fill(object|array $data, bool $filter = false): static
+    public function assign(object|array $data, bool $filter = false): static
     {
-        return RequestHelper::getInstance()->fill($this, $data, $filter);
+        return RequestHelper::getInstance()->assign($this, $data, $filter);
     }
 
-    public function getSetterData(): array
+    public function fromRequest(array|Request $data): static
     {
-        return $this->setterData;
+        $this->assign($data instanceof Request ? $data->all() : $data, true);
+
+        return $this;
     }
+
 
     public function assignSetValues(): static
     {
         $this->setterData = $this->getSetMethodArgumentValues();
 
-        return RequestHelper::getInstance()->fill($this, $this->setterData, true);
+        return $this->assign($this->setterData, true);
+    }
+
+    public function getSetterData(): array
+    {
+        return $this->setterData;
     }
 
     public function getSetMethodArgumentValues(): array
@@ -159,7 +170,6 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
     {
         return $this::validate(get_object_vars($this));
     }
-
 
     /**
      * @return string
