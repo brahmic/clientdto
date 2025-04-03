@@ -16,6 +16,7 @@ use Brahmic\ClientDTO\Exceptions\UnresolvedResponseException;
 use Brahmic\ClientDTO\Response\ClientResponse;
 use Brahmic\ClientDTO\Support\Log;
 use Brahmic\ClientDTO\Support\MimeTypes;
+use Brahmic\ClientDTO\Support\RequestHelper;
 use Exception;
 use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Http\Client\ConnectionException;
@@ -73,6 +74,8 @@ class ResponseResolver
         $this->log->add(sprintf("Execute `%s` request", class_basename($clientRequest)));
 
         try {
+            $this->assignRequestSetterValues($this->clientRequest);
+
             $this->executiveRequest = new ExecutiveRequest($this->clientRequest);
 
             $this->sendRequest();
@@ -98,6 +101,15 @@ class ResponseResolver
         $this->finish();
 
         return $this->createClientResponse($this->response);
+    }
+
+    private function assignRequestSetterValues(AbstractRequest $clientRequest): void
+    {
+        $data = $clientRequest->getSetterData();
+        if (!empty(array_filter($data))) {
+            $clientRequest::validate($data);
+            RequestHelper::getInstance()->fill($clientRequest, $data, true);
+        }
     }
 
     private function createClientResponse(PromiseInterface|Response|null $response = null): ClientResponseInterface

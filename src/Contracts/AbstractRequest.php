@@ -15,8 +15,6 @@ use Brahmic\ClientDTO\Support\RequestHelper;
 use Brahmic\ClientDTO\Traits\BodyFormat;
 use Brahmic\ClientDTO\Traits\QueryParams;
 use Brahmic\ClientDTO\Traits\Timeout;
-use Error;
-use ErrorException;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
@@ -48,6 +46,7 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
     private ?AbstractResource $resource = null;
     private bool $hasBeenExecuted = false;
     private ?ClientResponseInterface $response = null;
+    private array $setterData = [];
 
 
     public function send(): ClientResponseInterface|ClientResponse
@@ -128,12 +127,16 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
         return RequestHelper::getInstance()->fill($this, $data, $filter);
     }
 
-    public function assignSetValues(): static
+    public function getSetterData(): array
     {
-        $data = $this->getSetMethodArgumentValues();
-        return RequestHelper::getInstance()->fill($this, $data, true);
+        return $this->setterData;
     }
 
+    public function assignSetValues(): static
+    {
+        $this->setterData = $this->getSetMethodArgumentValues();
+        return $this;
+    }
 
     public function getSetMethodArgumentValues(): array
     {
