@@ -2,6 +2,7 @@
 
 namespace Brahmic\ClientDTO\Support;
 
+use Arr;
 use Brahmic\ClientDTO\Attributes\Append;
 use Illuminate\Support\Collection;
 use ReflectionProperty;
@@ -22,6 +23,18 @@ use Spatie\LaravelData\Support\Transformation\TransformationContextFactory;
 
 abstract class Data extends \Spatie\LaravelData\Data
 {
+
+//    private array $appendsToResult = [];
+//
+//    public function append(string $key, mixed $value): static
+//    {
+//        Arr::set($this->appendsToResult, $key, $value);
+//        return $this;
+//    }
+//    public function getResultAppends(): array
+//    {
+//        return $this->appendsToResult;
+//    }
 
     public function transform(null|TransformationContextFactory|TransformationContext $transformationContext = null): array
     {

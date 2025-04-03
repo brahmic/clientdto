@@ -2,9 +2,11 @@
 
 namespace Brahmic\ClientDTO\Response;
 
+use Arr;
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
 use Brahmic\ClientDTO\Requests\ExecutiveRequest;
+use Brahmic\ClientDTO\Support\Data;
 use Brahmic\ClientDTO\Support\Log;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Responsable;
@@ -19,6 +21,8 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
 
     private static ?ClientResponse $lastResponse = null;
 
+    private array $appendsToResult = [];
+
     public function __construct(protected readonly mixed             $resolved,
                                 protected readonly ?string           $message,
                                 protected readonly ?int              $status,
@@ -30,7 +34,9 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
     )
     {
         $this->error = is_null($this->resolved);
+
         $this->result = $resolved;
+
         self::$lastResponse = $this;
     }
 
@@ -80,7 +86,25 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
             $result['debug'] = $debugInfo;
         }
 
+        $this->appendToResult($result);
+
         return $result;
+    }
+
+
+    public function append(string $key, mixed $value): static
+    {
+        Arr::set($this->appendsToResult, $key, $value);
+        return $this;
+    }
+
+    private function appendToResult(array &$result): void
+    {
+        if ($this->resolved instanceof Data) {
+            collect($this->appendsToResult)->each(function ($value, $key) use (&$result) {
+                Arr::set($result, $key, $value);
+            });
+        }
     }
 
     public function toResponse($request): JsonResponse|\Symfony\Component\HttpFoundation\Response
@@ -92,6 +116,9 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
             }
 
             $this->result = $this->resolved->toArray();
+
+            $this->appendToResult($result);
+
         }
 
         return response()->json($this->toArray(), $this->status);
