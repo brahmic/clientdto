@@ -157,13 +157,7 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
 
     public function validateRequest(): array|Arrayable
     {
-        $validator = Validator::make($this->toArray(), static::getValidationRules([]));
-
-        if ($validator->fails()) {
-            throw new ValidationException($validator);
-        }
-
-        return $validator->validated();
+        return $this::validate(get_object_vars($this));
     }
 
 

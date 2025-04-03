@@ -74,8 +74,6 @@ class ResponseResolver
         $this->log->add(sprintf("Execute `%s` request", class_basename($clientRequest)));
 
         try {
-            $this->assignRequestSetterValues($this->clientRequest);
-
             $this->executiveRequest = new ExecutiveRequest($this->clientRequest);
 
             $this->sendRequest();
@@ -101,14 +99,6 @@ class ResponseResolver
         $this->finish();
 
         return $this->createClientResponse($this->response);
-    }
-
-    private function assignRequestSetterValues(AbstractRequest $clientRequest): void
-    {
-        $data = $clientRequest->getSetterData();
-        if (!empty(array_filter($data))) {
-            $clientRequest::validate($data);
-        }
     }
 
     private function createClientResponse(PromiseInterface|Response|null $response = null): ClientResponseInterface
