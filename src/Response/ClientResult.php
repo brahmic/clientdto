@@ -13,7 +13,9 @@ class ClientResult implements Arrayable
 
     public function __construct(null|array|object $data = null)
     {
+
         if (is_array($data)) {
+
             $this->result = $data;
         } else {
             if ($data) {

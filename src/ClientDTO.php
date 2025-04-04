@@ -106,7 +106,7 @@ class ClientDTO implements ClientDTOInterface, ChainInterface
 
     public function getRequestDeclarations(?Closure $mapperClosure = null): Collection
     {
-        $declarations = ClientResolver::getInstance()->determineResourceMap(static::class)->getRequests();
+        $declarations = collect(ClientResolver::getInstance()->determineResourceMap(static::class)->requests);
 
         if ($mapperClosure) {
             $declarations = $declarations->map(function ($declaration) use ($mapperClosure) {
