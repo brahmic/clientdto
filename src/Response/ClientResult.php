@@ -29,7 +29,7 @@ class ClientResult implements Arrayable
         }
     }
 
-    public function set(string $key, mixed $value, bool $condition = true): static
+    public function set(string $key, mixed $value, ?bool $condition = true): static
     {
         if ($condition) {
             Arr::set($this->result, $key, $value);

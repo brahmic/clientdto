@@ -27,7 +27,7 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
     public function __construct(private readonly mixed             $resolved,
                                 protected readonly ?string           $message,
                                 protected readonly ?int              $status,
-                                protected readonly array             $details,
+                                protected readonly array             $details = [],
                                 protected readonly ?AbstractRequest  $clientRequest = null,
                                 protected readonly ?ExecutiveRequest $executiveRequest = null,
                                 protected readonly ?Response         $response = null,
@@ -56,11 +56,11 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
     {
         return [
             'url' => $this->executiveRequest?->getUrlWithQueryParams(),
-            'clientRequest' => $this->clientRequest->debugInfo(),
+            'clientRequest' => $this->clientRequest?->debugInfo(),
             'executiveRequest' => $this->executiveRequest?->toArray(),
             //'response' => $this->ifFileResolved() ? 'file' : $this->response?->body(), //todo сериализация (кеш) глючит
             'status' => $this->status,
-            'log' => $this->log->all(),
+            'log' => $this->log?->all(),
         ];
     }
 
