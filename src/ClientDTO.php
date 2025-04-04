@@ -120,13 +120,9 @@ class ClientDTO implements ClientDTOInterface, ChainInterface
 
     public function getRequestClassByKey(string $key): ?string
     {
-        if ($declaration = $this->getRequestDeclarations()->first(function ($declaration) use ($key) {
-            return $declaration['key'] === $key;
-        })) {
-            return $declaration['class'];
-        };
-
-        return null;
+        return $this->getRequestDeclarations()->search(function ($item) use ($key) {
+            return $item['key'] === $key;
+        });
     }
 
     public function createRequestByKey(string $key): AbstractRequest
