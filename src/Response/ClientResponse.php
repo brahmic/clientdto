@@ -6,8 +6,8 @@ use Arr;
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
 use Brahmic\ClientDTO\Requests\ExecutiveRequest;
-use Brahmic\ClientDTO\Support\Data;
 use Brahmic\ClientDTO\Support\Log;
+use Closure;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\Client\Response;
@@ -17,13 +17,14 @@ use Illuminate\Http\JsonResponse;
 class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
 {
     private readonly bool $error;
+
     protected mixed $result = null;
 
     private static ?ClientResponse $lastResponse = null;
 
-    private array $appendsToResult = [];
+    private array $resultModifiers = [];
 
-    public function __construct(protected readonly mixed             $resolved,
+    public function __construct(private readonly mixed             $resolved,
                                 protected readonly ?string           $message,
                                 protected readonly ?int              $status,
                                 protected readonly array             $details,
@@ -35,10 +36,11 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
     {
         $this->error = is_null($this->resolved);
 
-        $this->result = $resolved;
+        $this->result = new ClientResult();
 
         self::$lastResponse = $this;
     }
+
 
     public static function getLastResponse(): ?ClientResponse
     {
@@ -50,62 +52,47 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
         return $this->resolved instanceof FileResponse;
     }
 
-    public function getDebugInfo(): ?array
-    {
-        if ($this->clientRequest?->isDebug()) {
-            return [
-                'url' => $this->executiveRequest?->getUrlWithQueryParams(),
-                'clientRequest' => $this->clientRequest->debugInfo(),
-                'executiveRequest' => $this->executiveRequest?->toArray(),
-                'response' => $this->ifFileResolved() ? 'file' : $this->response?->body(),
-                'status' => $this->status,
-                'log' => $this->log->all(),
-            ];
-        }
-        return null;
-    }
-
-    protected function finalResult(): array
+    public function getDebugInfo(): array
     {
         return [
-            'result' => $this->result,
-            'error' => $this->error,
-            'message' => $this->message,
+            'url' => $this->executiveRequest?->getUrlWithQueryParams(),
+            'clientRequest' => $this->clientRequest->debugInfo(),
+            'executiveRequest' => $this->executiveRequest?->toArray(),
+            'response' => $this->ifFileResolved() ? 'file' : $this->response?->body(),
+            'status' => $this->status,
+            'log' => $this->log->all(),
         ];
+    }
+
+    protected function fillResult(ClientResult $clientResult): void
+    {
+        $clientResult->set('result', $this->resolved);
+    }
+
+    public function modifyResult(Closure $closure): static
+    {
+        $this->resultModifiers[] = $closure;
+
+        return $this;
     }
 
     public function toArray(): array
     {
-        $result = $this->finalResult();
+        $this->fillResult($this->result);
 
-        if ($this->error && !empty($this->details)) {
-            $result['details'] = $this->details;
-        }
+        $this->result
+            ->set('error', $this->error)
+            ->set('message', $this->message)
+            ->set('details', $this->details, $this->error && !empty($this->details))
+            ->set('debug', $this->getDebugInfo(), $this->clientRequest?->isDebug());
 
-        if ($debugInfo = $this->getDebugInfo()) {
-            $result['debug'] = $debugInfo;
-        }
+        array_walk($this->resultModifiers, function (Closure $closure) {
+            $closure($this->result, $this->resolved);
+        });
 
-        $this->appendToResult($result);
-
-        return $result;
+        return $this->result->toArray();
     }
 
-
-    public function append(string $key, mixed $value): static
-    {
-        Arr::set($this->appendsToResult, $key, $value);
-        return $this;
-    }
-
-    private function appendToResult(array &$result): void
-    {
-        if ($this->resolved instanceof Data) {
-            collect($this->appendsToResult)->each(function ($value, $key) use (&$result) {
-                Arr::set($result, $key, $value);
-            });
-        }
-    }
 
     public function toResponse($request): JsonResponse|\Symfony\Component\HttpFoundation\Response
     {
@@ -115,10 +102,7 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
                 return $this->resolved->toResponse($request);
             }
 
-            $this->result = $this->resolved->toArray();
-
-            $this->appendToResult($result);
-
+            //$this->result = $this->resolved->toArray();
         }
 
         return response()->json($this->toArray(), $this->status);
