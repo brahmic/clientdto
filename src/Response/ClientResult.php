@@ -13,31 +13,24 @@ class ClientResult implements Arrayable
 
     public function __construct(null|array|object $data = null)
     {
-        $this->result = $this->getAsArray($data);
-    }
-
-    private function getAsArray(mixed $data): array
-    {
         if (is_array($data)) {
-            $value = $data;
+            $this->result = $data;
         } else {
             if ($data) {
                 if ($data instanceof Arrayable) {
-                    $value = $data->toArray();
+                    $this->result = $data->toArray();
 
                 } else {
-                    $value = ['object'];
+                    $this->result = ['object'];
                 }
             }
         }
-
-        return $value ?? [];
     }
 
     public function set(string $key, mixed $value, bool $condition = true): static
     {
         if ($condition) {
-            Arr::set($this->result, $key, $this->getAsArray($value));
+            Arr::set($this->result, $key, $value);
         }
 
         return $this;
@@ -45,7 +38,7 @@ class ClientResult implements Arrayable
 
     public function prepend(string $key, mixed $value): static
     {
-        $this->result = [$key => $this->getAsArray($value)] + $this->result;
+        $this->result = [$key => $value] + $this->result;
 
         return $this;
     }

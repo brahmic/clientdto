@@ -58,7 +58,7 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
             'url' => $this->executiveRequest?->getUrlWithQueryParams(),
             'clientRequest' => $this->clientRequest->debugInfo(),
             'executiveRequest' => $this->executiveRequest?->toArray(),
-            'response' => $this->ifFileResolved() ? 'file' : $this->response?->body(),
+            //'response' => $this->ifFileResolved() ? 'file' : $this->response?->body(), //todo сериализация (кеш) глючит
             'status' => $this->status,
             'log' => $this->log->all(),
         ];
