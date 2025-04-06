@@ -24,7 +24,7 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
 
     private array $resultModifiers = [];
 
-    public function __construct(private readonly mixed             $resolved,
+    public function __construct(private readonly mixed               $resolved,
                                 protected readonly ?string           $message,
                                 protected readonly ?int              $status,
                                 protected readonly array             $details = [],
@@ -116,6 +116,11 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
     public function getMessage(): ?string
     {
         return $this->message;
+    }
+
+    public function getStatusCode(): int
+    {
+        return !is_null($this->status) ? $this->status : 500;
     }
 
     public function getRequest(): ?AbstractRequest
