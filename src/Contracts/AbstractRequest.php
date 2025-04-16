@@ -52,6 +52,44 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
 
     private array $exceptions = [];
 
+    public function original():array
+    {
+        $result = [];
+        $reflection = new \ReflectionClass($this);
+
+        foreach ($reflection->getProperties(\ReflectionProperty::IS_PUBLIC) as $property) {
+            $name = $property->getName();
+            $value = $property->getValue($this);
+
+            $result[$name] = $this->normalizeValue($value);
+        }
+
+        return $result;
+    }
+    private function normalizeValue($value)
+    {
+        if (is_null($value)) {
+            return '';
+        }
+
+        if (is_array($value)) {
+            return array_map([$this, 'normalizeValue'], $value);
+        }
+
+        if ($value instanceof \UnitEnum) {
+            return method_exists($value, 'value') ? (string)$value->value : (string)$value->name;
+        }
+
+        if (is_object($value)) {
+            if (method_exists($value, '__toString')) {
+                return (string)$value;
+            }
+            return json_encode($value, JSON_UNESCAPED_UNICODE);
+        }
+
+        return (string)$value;
+    }
+
 
     public function send(): ClientResponseInterface|ClientResponse
     {
