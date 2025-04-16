@@ -130,12 +130,17 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
         return RequestHelper::getInstance()->assign($this, $data, $filter);
     }
 
-    public function fromRequest(array|Request $data): static
+    /**
+     * @param array|Request $data
+     * @return $this
+     */
+    public function assignFromRequest(array|Request $data): static
     {
         $this->assign($data instanceof Request ? $data->all() : $data, true);
 
         return $this;
     }
+
 
 
     public function assignSetValues(): static
