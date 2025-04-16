@@ -6,7 +6,9 @@ use BackedEnum;
 use Brahmic\ClientDTO\Attributes\HideFromBody;
 use Brahmic\ClientDTO\Attributes\HideFromQueryStr;
 use Brahmic\ClientDTO\Attributes\MapCaseOutputValue;
+use DateTime;
 use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use ReflectionClass;
 use ReflectionProperty;
@@ -130,9 +132,21 @@ class RequestHelper
             if (is_null($value) && !$property->getType()->allowsNull()) {
                 self::exception("Свойство {$property->getName()} не может быть null.");
             }
+
+            $typeName = $property->getType()?->getName();
+
+            if ($typeName && enum_exists($typeName) && !($value instanceof $typeName)) {
+                /** @var BackedEnum $typeName  */
+                $value = $typeName::from($value);
+            } elseif ($typeName === Carbon::class && !($value instanceof Carbon)) {
+                $value = Carbon::parse($value);
+            }elseif ($typeName === DateTime::class && !($value instanceof DateTime)) {
+                $value = DateTime::createFromFormat('d.m.Y',Carbon::parse($value)->format('d.m.Y'));
+            }
         }
 
         try {
+            //todo на типизированное свойство Enum не происходит присваивания
             $object->{$propertyName} = $value;
         } catch (\Throwable $exception) {
 
