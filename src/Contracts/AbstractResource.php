@@ -12,7 +12,6 @@ abstract class AbstractResource implements ChainInterface
     use QueryParams;
 
     public const ?string NAME = null; // Human-readable title of resource
-    public const ?string ASD1 = 'A11SD1'; // Human-readable title of resource
 
     private ?ClientDTO $clientDTO = null;
 
@@ -23,7 +22,7 @@ abstract class AbstractResource implements ChainInterface
     }
 
 
-    public static function getKey(Collection $chain): string
+    public static function makeKey(Collection $chain): string
     {
         return $chain
             ->map(fn($class) => lcfirst(class_basename($class)))
@@ -34,7 +33,7 @@ abstract class AbstractResource implements ChainInterface
     {
         return [
             'name' => static::getName(),
-            'key' => static::getKey($context->chain),
+            'key' => static::makeKey($context->chain),
         ];
     }
 

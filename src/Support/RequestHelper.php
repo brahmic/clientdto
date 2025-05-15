@@ -59,71 +59,7 @@ class RequestHelper
 
     public function resolveRequestParams(Data $target, PropertyContext $context): array
     {
-        $reflection = new \ReflectionClass($target::class);
-
-        $enumCastReplacements = [];
-
-        foreach ($reflection->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
-            $attributes = $this->getAttributes($property);
-
-            $hideFromQueryStr = $attributes->contains(
-                fn(object $attribute) => $attribute instanceof HideFromQueryStr
-            );
-
-            $hideFromBody = $attributes->contains(
-                fn(object $attribute) => $attribute instanceof HideFromBody
-            );
-
-            /** @var MapOutputName $mapOutputName */
-            $mapOutputName = $attributes->first(
-                fn(object $attribute) => $attribute instanceof MapOutputName
-            );
-
-
-            //if ($prop instanceof BackedEnum::class) {
-            if (is_subclass_of($property->getType()->getName(), BackedEnum::class)) {
-
-                $reflectionEnumBackedCases = new \ReflectionEnum($property->getType()->getName())->getCases();
-
-                $enumCastReplacements = collect($reflectionEnumBackedCases)
-                    ->mapWithKeys(function (\ReflectionEnumBackedCase $reflectionCase) use ($target, $property, $mapOutputName) {
-
-                        /** @var BackedEnum $caseInstance */
-                        if ($caseInstance = $property->getValue($target)) {
-                            /** @var BackedEnum $enumCase */
-                            $enumCase = $reflectionCase->getValue();
-
-                            if ($caseInstance->value === $enumCase->value) {
-
-                                $mapOutputFilterValue = $reflectionCase->getAttributes(MapCaseOutputValue::class);
-
-                                if (!empty($mapOutputFilterValue)) {
-                                    return [$mapOutputName->output ?? $property->getName()=> $mapOutputFilterValue[0]->newInstance()->output];
-                                }
-                            }
-
-                        }
-
-                        /*
-                         * ELSE
-                         * In this case, it means that the DTO object property either doesn't have a default value or hasn't been set.
-                         */
-
-                        return [];
-                    })
-                    ->filter()
-                    ->toArray();
-
-            }
-
-            if (($context === PropertyContext::Body && $hideFromBody) || ($context === PropertyContext::QueryString && $hideFromQueryStr)) {
-                $target->except($property->getName(), true);
-            }
-        }
-
-        $transformed = $target->transform();
-
-        return array_merge($transformed, $enumCastReplacements);
+        return new RequestParamResolver()->resolveRequestParams($target, $context);
     }
 
     private function setPropertyValue(object $object, $propertyName, $value, ?ReflectionProperty $property = null): void

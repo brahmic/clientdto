@@ -2,6 +2,7 @@
 
 namespace Brahmic\ClientDTO\ResourceScanner;
 
+use Bezopasno\IrbisClient\Support\Attributes\Volume;
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\AbstractResource;
 use InvalidArgumentException;
@@ -54,9 +55,11 @@ class Scanner
         $resourceTree = [];
         $requestParents = [];
 
-        $scan = function (string $class, array $path = []) use (&$resourceTree, &$requestParents, &$scan) {
+        $volume = $this->getClassVolume($resourceClass);
+
+        $scan = function (string $class, array $path = [], $volume = null) use (&$resourceTree, &$requestParents, &$scan) {
             if (!is_subclass_of($class, AbstractResource::class)) {
-                throw new InvalidArgumentException("$class must be extend of AbstractResource");
+                throw new InvalidArgumentException("$class must be extEend of AbstractResource");
             }
 
             $currentPath = array_merge($path, [$class]);
@@ -65,12 +68,15 @@ class Scanner
             $context = new Context(
                 chain: collect($currentPath),
                 resourceClass: $class,
+                volume: $volume,
+                class: $class,
             );
 
             $resourceTree[$class] = [
                 ...$class::declare($context),
                 'resources' => [],
                 'requests' => [],
+                'volume' => $volume?->toArray(),
             ];
 
             foreach ($methods as $method) {
@@ -82,11 +88,14 @@ class Scanner
 
                     if (is_subclass_of($returnClass, AbstractResource::class)) {
 
-                        // Add nested resource
+                        $effectiveVolume = $this->getEffectiveVolume($reflectionMethod, $returnClass, $volume);
+
                         $resourceTree[$class]['resources'][] = $returnClass;
-                        $scan($returnClass, $currentPath); // Recursive scan
+                        $scan($returnClass, $currentPath, $effectiveVolume);
 
                     } elseif (is_subclass_of($returnClass, AbstractRequest::class)) {
+
+                        $effectiveVolume = $this->getEffectiveVolume($reflectionMethod, $returnClass, $volume);
 
                         // Add request and save parent class
                         $resourceTree[$class]['requests'][$returnClass] = $returnClass;
@@ -95,20 +104,59 @@ class Scanner
                             reflectionMethod: $reflectionMethod,
                             chain: collect($currentPath),
                             resourceClass: $class,
+                            volume: $effectiveVolume,
+                            class: $returnClass,
                         );
+
 
                         $requestParents[$returnClass] = [
                             ...$returnClass::declare($context),
                             'resources' => $currentPath,
+                            'volume' => $effectiveVolume?->toArray(),
                         ];
                     }
                 }
             }
         };
 
-        $scan($resourceClass);
+        $scan($resourceClass, [], $volume);
 
         return new ResourceMap($resourceClass, $resourceTree, $requestParents);
     }
 
+    private function getEffectiveVolume(ReflectionMethod $reflectionMethod, string $class, ?Volume $default): ?Volume
+    {
+        $methodVolume = $this->getMethodVolume($reflectionMethod);
+        $classVolume = $this->getClassVolume($class);
+        return $methodVolume ?? $classVolume ?? $default;
+    }
+
+    private function getClassVolume(string $class): ?Volume
+    {
+        // Создаем ReflectionProperty для свойства
+        $reflectionProperty = new \ReflectionClass($class);
+
+        // Получаем атрибуты свойства
+        $attributes = $reflectionProperty->getAttributes(Volume::class);
+
+        // Если атрибут найден, возвращаем его экземпляр
+        if (!empty($attributes)) {
+            return $attributes[0]->newInstance();
+        }
+
+        return null;
+    }
+
+    private function getMethodVolume($reflectionMethod): ?Volume
+    {
+        // Получаем атрибуты свойства
+        $attributes = $reflectionMethod->getAttributes(Volume::class);
+
+        // Если атрибут найден, возвращаем его экземпляр
+        if (!empty($attributes)) {
+            return $attributes[0]->newInstance();
+        }
+
+        return null;
+    }
 }

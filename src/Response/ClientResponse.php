@@ -2,107 +2,68 @@
 
 namespace Brahmic\ClientDTO\Response;
 
-use Arr;
-use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
-use Brahmic\ClientDTO\Requests\ExecutiveRequest;
-use Brahmic\ClientDTO\Support\Log;
-use Closure;
+use Brahmic\ClientDTO\Contracts\GroupedRequest;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Responsable;
-use Illuminate\Http\Client\Response;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Collection;
+use Symfony\Component\HttpFoundation\Response;
 
 
 class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
 {
-    private readonly bool $error;
 
-    protected mixed $result = null;
+    protected ClientResult $result;
+    protected RequestResult $requestResult;
 
-    private static ?ClientResponse $lastResponse = null;
+    protected string $message = 'Successful';
 
-    private array $resultModifiers = [];
+    protected int $status = 200;
 
-    public function __construct(private readonly mixed               $resolved,
-                                protected readonly ?string           $message,
-                                protected readonly ?int              $status,
-                                protected readonly array             $details = [],
-                                protected readonly ?AbstractRequest  $clientRequest = null,
-                                protected readonly ?ExecutiveRequest $executiveRequest = null,
-                                protected readonly ?Response         $response = null,
-                                protected readonly ?Log              $log = null,
-    )
+    protected array $details = [];
+    protected bool $grouped = false;
+
+    protected static ?ClientResponse $lastResponse = null;
+
+    public function __construct(RequestResult $requestResult)
     {
-        $this->error = is_null($this->resolved);
+        $this->requestResult = $requestResult;
 
-        $this->result = new ClientResult();
+        $this->result = $this->modificatorResult($requestResult);
+
+        $this->message = $requestResult->message;
+
+        $this->status = $requestResult->statusCode;
+
+        $this->details = $requestResult->details;
+
+        $this->grouped = $requestResult->clientRequest instanceof GroupedRequest;
 
         self::$lastResponse = $this;
     }
 
-
-    public static function getLastResponse(): ?ClientResponse
-    {
-        return self::$lastResponse;
-    }
-
-    private function ifFileResolved(): bool
-    {
-        return $this->resolved instanceof FileResponse;
-    }
-
-    public function getDebugInfo(): array
-    {
-        return [
-            'url' => $this->executiveRequest?->getUrlWithQueryParams(),
-            'clientRequest' => $this->clientRequest?->debugInfo(),
-            'executiveRequest' => $this->executiveRequest?->toArray(),
-            //'response' => $this->ifFileResolved() ? 'file' : $this->response?->body(), //todo сериализация (кеш) глючит
-            'status' => $this->status,
-            'log' => $this->log?->all(),
-        ];
-    }
-
-    protected function fillResult(ClientResult $clientResult): void
-    {
-        $clientResult->set('result', $this->resolved);
-    }
-
-    public function modifyResult(Closure $closure): static
-    {
-        $this->resultModifiers[] = $closure;
-
-        return $this;
-    }
-
     public function toArray(): array
     {
-        $this->fillResult($this->result);
-
-        $this->result
-            ->set('error', $this->error)
+        $final = new ClientResult()
             ->set('message', $this->message)
-            ->set('details', $this->details, $this->error && !empty($this->details))
-            ->set('debug', $this->getDebugInfo(), $this->clientRequest?->isDebug());
+            ->set('error', $this->hasError())
+            ->set('result', $this->result->toArray())
+            ->set('details', $this->details, $this->hasError() && !empty($this->details));
 
-        array_walk($this->resultModifiers, function (Closure $closure) {
-            $closure($this->result, $this->resolved);
-        });
-
-        return $this->result->toArray();
+        return $final->toArray();
     }
 
 
-    public function toResponse($request): JsonResponse|\Symfony\Component\HttpFoundation\Response
+    public function toResponse($request): JsonResponse|Response
     {
-        if ($this->resolved instanceof FileResponse) {
+        $resolved = $this->resolved();
 
-            if ($this->resolved->hasOneFile()) {
-                return $this->resolved->toResponse($request);
+        if ($resolved instanceof FileResponse) {
+
+            if ($resolved->hasOneFile()) {
+                return $resolved->toResponse($request);
             }
-
-            //$this->result = $this->resolved->toArray();
         }
 
         return response()->json($this->toArray(), $this->status);
@@ -110,7 +71,7 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
 
     public function resolved(): mixed
     {
-        return $this->resolved;
+        return $this->requestResult->resolved;
     }
 
     public function getMessage(): ?string
@@ -120,16 +81,49 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
 
     public function getStatusCode(): int
     {
-        return !is_null($this->status) ? $this->status : 500;
-    }
-
-    public function getRequest(): ?AbstractRequest
-    {
-        return $this->clientRequest;
+        return $this->status;
     }
 
     public function hasError(): bool
     {
-        return $this->error;
+        return $this->requestResult->hasError();
+    }
+
+    public function isGrouped(): bool
+    {
+        return $this->grouped;
+    }
+
+
+    public static function getLastResponse(): ?ClientResponse
+    {
+        return self::$lastResponse;
+    }
+
+    private function modificatorResult(RequestResult $requestResult): ClientResult
+    {
+        if ($requestResult?->clientRequest instanceof GroupedRequest) {
+
+            /** @var Collection $collection */
+            if ($collection = $requestResult->resolved) {
+                $collection->transform(function (RequestResult $requestResult) {
+                    return $requestResult
+                        ->modifyResult()
+                        ->set('key', $requestResult->clientRequest->getKey());
+                });
+            }
+        }
+
+        return $this->modifyResult($requestResult->modifyResult());
+    }
+
+    private function ifFileResolved(): bool
+    {
+        return $this->requestResult->hasFile();
+    }
+
+    protected function modifyResult(ClientResult $clientResult): ClientResult
+    {
+        return $clientResult;
     }
 }

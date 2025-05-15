@@ -3,6 +3,8 @@
 namespace Brahmic\ClientDTO\Contracts;
 
 
+use Brahmic\ClientDTO\Response\RequestResult;
+
 interface ClientResponseInterface
 {
 

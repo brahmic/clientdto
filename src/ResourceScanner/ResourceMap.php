@@ -10,7 +10,14 @@ readonly class ResourceMap
         private string $rootClass,
         public array   $requests,
         public array   $resources,
-    ) {}
+    ) {
+
+    }
+
+    public function getRequestDeclaration(string $requestClass): array
+    {
+        return $this->requests[$requestClass];
+    }
 
     public function getRootClass(): string
     {
@@ -19,7 +26,7 @@ readonly class ResourceMap
 
     public function getRequestResources(string $requestClass): Collection
     {
-        return collect($this->requests[$requestClass]['resources'] ?? []);
+        return collect($this->getRequestDeclaration($requestClass)['resources'] ?? []);
     }
 
     public function getAllRequestsForResource(string $resourceClass): Collection

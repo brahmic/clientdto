@@ -8,31 +8,66 @@ use Illuminate\Contracts\Support\Arrayable;
 class ClientResult implements Arrayable
 {
 
-    protected array $result = [];
+    protected mixed $data = null;
     protected array $appends = [];
 
-    public function __construct(null|array|object $data = null)
+    public function __construct(mixed $data = null)
     {
+        $this->fill($data);
+    }
 
+    public function value(): ?array
+    {
+        return $this->data;
+    }
+
+    public function clear(): static
+    {
+        $this->data = [];
+
+        return $this;
+    }
+
+    public function fill(null|array|object $data = null): void
+    {
         if (is_array($data)) {
-
-            $this->result = $data;
+            $this->data = $data;
         } else {
             if ($data) {
                 if ($data instanceof Arrayable) {
-                    $this->result = $data->toArray();
+                    $this->data = $data->toArray();
 
                 } else {
-                    $this->result = ['object'];
+                    $this->data = ['object'];
                 }
             }
         }
     }
 
+    private function canArray(): void
+    {
+        if (!is_null($this->data) && !is_array($this->data)) {
+            throw new \RuntimeException('Cannot use $data for array operations');
+        }
+    }
+
+    public function add(mixed $value, ?bool $condition = true): static
+    {
+        $this->canArray();
+
+        if ($condition) {
+            $this->data[] = $value;
+        }
+
+        return $this;
+    }
+
     public function set(string $key, mixed $value, ?bool $condition = true): static
     {
+        $this->canArray();
+
         if ($condition) {
-            Arr::set($this->result, $key, $value);
+            Arr::set($this->data, $key, $value);
         }
 
         return $this;
@@ -40,7 +75,9 @@ class ClientResult implements Arrayable
 
     public function prepend(string $key, mixed $value): static
     {
-        $this->result = [$key => $value] + $this->result;
+        $this->canArray();
+
+        $this->data = [$key => $value] + $this->data;
 
         return $this;
     }
@@ -48,20 +85,26 @@ class ClientResult implements Arrayable
 
     public function merge(array $items): static
     {
-        $this->result = array_merge($this->result, $items);
+        $this->canArray();
+
+        $this->data = array_merge($this->data, $items);
 
         return $this;
     }
 
     public function except(array|string $keys): static
     {
-        $this->result = Arr::except($this->result, $keys);
+        $this->canArray();
+
+        $this->data = Arr::except($this->data, $keys);
 
         return $this;
     }
 
     public function toArray(): array
     {
-        return $this->result;
+        return ($this->data instanceof Arrayable)
+            ? $this->data->toArray()
+            : $this->data;
     }
 }

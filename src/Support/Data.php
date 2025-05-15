@@ -21,7 +21,7 @@ use Spatie\LaravelData\Normalizers\ObjectNormalizer;
 use Spatie\LaravelData\Support\Transformation\TransformationContext;
 use Spatie\LaravelData\Support\Transformation\TransformationContextFactory;
 
-abstract class Data extends \Spatie\LaravelData\Data
+abstract class Data extends \Spatie\LaravelData\Data implements DtoDataInterface
 {
 
 //    private array $appendsToResult = [];

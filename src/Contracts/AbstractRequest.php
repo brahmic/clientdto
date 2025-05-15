@@ -5,10 +5,12 @@ namespace Brahmic\ClientDTO\Contracts;
 use Brahmic\ClientDTO\ClientDTO;
 use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
-use Brahmic\ClientDTO\Requests\ResponseResolver;
+use Brahmic\ClientDTO\Requests\RequestExecutor;
 use Brahmic\ClientDTO\Resolver\ClientResolver;
 use Brahmic\ClientDTO\ResourceScanner\Context;
 use Brahmic\ClientDTO\Response\ClientResponse;
+use Brahmic\ClientDTO\Response\ClientResult;
+use Brahmic\ClientDTO\Response\RequestResult;
 use Brahmic\ClientDTO\Support\Data;
 use Brahmic\ClientDTO\Support\PropertyContext;
 use Brahmic\ClientDTO\Support\RequestHelper;
@@ -18,9 +20,6 @@ use Brahmic\ClientDTO\Traits\Timeout;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
-use phpDocumentor\Reflection\Exception;
 
 
 abstract class AbstractRequest extends Data implements ClientRequestInterface, ChainInterface
@@ -41,8 +40,6 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
 
     public const string NAME = 'Абстрактный запрос';
 
-    //public const string REQUEST_OPTIONS = RequestOptions::JSON;
-
     private ?ClientDTO $clientDTO = null;
 
     private ?AbstractResource $resource = null;
@@ -52,7 +49,14 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
 
     private array $exceptions = [];
 
-    public function original():array
+
+    /**
+     * Use for grouped requests
+     * @var bool
+     */
+    protected bool $groupedWithKeys = false;
+
+    public function original(): array
     {
         $result = [];
         $reflection = new \ReflectionClass($this);
@@ -66,6 +70,13 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
 
         return $result;
     }
+
+
+    public function modifyResult(RequestResult $requestResult):ClientResult
+    {
+        return $requestResult->getResult();
+    }
+
     private function normalizeValue($value)
     {
         if (is_null($value)) {
@@ -94,7 +105,12 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
     public function send(): ClientResponseInterface|ClientResponse
     {
         $this->hasBeenExecuted = true;
-        $this->response = new ResponseResolver()->execute($this);
+
+        /** @var ClientResponse $responseClass */
+        $responseClass = $this->getClientDTO()->getResponseClass();
+
+        $this->response = new $responseClass(new RequestExecutor()->execute($this));
+
         return $this->response;
     }
 
@@ -128,7 +144,7 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
         return $this->getClientDTO()->getBaseUrl($uri);
     }
 
-    public static function getUri(): string
+    public static function getUri(): ?string
     {
         return static::URI;
     }
@@ -178,7 +194,6 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
 
         return $this;
     }
-
 
 
     public function assignSetValues(): static
@@ -288,10 +303,10 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
         return self::validateAndCreate($data);
     }
 
-//    public static function getDeclaration(): array
-//    {
-//        return ClientResolver::getRequestDeclaration(static::class);
-//    }
+    public function getDeclaration():array
+    {
+        return ClientResolver::getInstance()->determineResourceMap(static::class)->getRequestDeclaration(static::class);
+    }
 
     /**
      * Generates a string query key that can be used later in the API.
@@ -300,7 +315,7 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
      * @param Collection $chain
      * @return string
      */
-    public static function getKey(Collection $chain): string
+    public static function makeKey(Collection $chain): string
     {
         return $chain
             ->map(fn($class) => class_basename($class))
@@ -313,8 +328,29 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
     {
         return [
             'name' => static::getName(),
-            'key' => static::getKey($context->chain),
+            'key' => static::makeKey($context->chain),
         ];
     }
 
+    public function getOwnPublicProperties(): array
+    {
+        $reflection = new \ReflectionClass($this);
+        $props = [];
+        foreach ($reflection->getProperties(\ReflectionProperty::IS_PUBLIC) as $property) {
+            if ($property->getDeclaringClass()->getName() === $reflection->getName()) {
+                $props[$property->getName()] = $this->{$property->getName()};
+            }
+        }
+        return $props;
+    }
+
+    public function getRequestClasses(): Collection
+    {
+        return collect();
+    }
+
+    public function getKey()
+    {
+        return $this->getDeclaration()['key'];
+    }
 }
