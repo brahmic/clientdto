@@ -56,7 +56,6 @@ class RequestExecutor
         $result = collect();
 
         $this->message = 'Successful';
-
         $this->statusCode = 200;
 
         $clientRequest->getRequestClasses()->each(function ($requestClass) use ($clientRequest, $result) {
@@ -95,8 +94,11 @@ class RequestExecutor
         try {
 
             if ($this->clientRequest instanceof GroupedRequest) {
+
                 $this->executeGrouped($this->clientRequest);
+
             } else {
+
                 $this->executiveRequest = new ExecutiveRequest($this->clientRequest);
 
                 $this->sendRequest();
@@ -161,6 +163,7 @@ class RequestExecutor
     {
         try {
             $this->resolved = new ResponseDtoResolver($this->clientRequest, $this->response)->resolve();
+
             $this->setResponseStatus(HttpResponse::HTTP_OK, 'Successful');
         } catch (AttemptNeededException $exception) {
             $this->handleAttemptNeededException($exception, $this->response);
@@ -186,6 +189,7 @@ class RequestExecutor
         $this->nextAttempt();
 
         if ($this->response->successful()) {
+
             $this->handleSuccessfulResponse();
         } else {
             $this->handleUnsuccessfulResponse();

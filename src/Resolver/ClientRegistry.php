@@ -78,6 +78,7 @@ class ClientRegistry
             }
         }
         $resourceMap = new Scanner()->scanClient($clientDTO::class);
+//dd('end', $resourceMap);
 
         $this->cache->put($cacheKey, $resourceMap);
 

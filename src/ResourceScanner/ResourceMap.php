@@ -11,11 +11,13 @@ readonly class ResourceMap
         public array   $requests,
         public array   $resources,
     ) {
-
+//dump($requests);
     }
 
     public function getRequestDeclaration(string $requestClass): array
     {
+        //dd($this->requests);
+        //dd($requestClass, $this->requests);
         return $this->requests[$requestClass];
     }
 

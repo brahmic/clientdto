@@ -42,10 +42,28 @@ class Scanner
                     // Merge resources and requests from the scanned map
                     $resourceTree += $scannedMap->resources;
                     $requestParents += $scannedMap->requests;
+                } elseif (is_subclass_of($returnClass, AbstractRequest::class)) {
+
+                    $volume = $this->getEffectiveVolume($reflectionMethod, $returnClass, $this->getClassVolume($rootClass));
+
+                    $context = new Context(
+                        reflectionMethod: $reflectionMethod,
+                        chain: collect([$rootClass]),
+                        resourceClass: $rootClass,
+                        class: $returnClass,
+                        volume: $volume,
+                    );
+
+                    $resourceTree[$returnClass] = [
+                        ...$returnClass::declare($context),
+                        'resources' => [$rootClass],
+                        'volume' => $volume?->toArray(),
+                    ];
                 }
+
             }
         }
-
+//dump($requestParents);
         return new ResourceMap($rootClass, $resourceTree, $requestParents);
     }
 
@@ -59,7 +77,7 @@ class Scanner
 
         $scan = function (string $class, array $path = [], $volume = null) use (&$resourceTree, &$requestParents, &$scan) {
             if (!is_subclass_of($class, AbstractResource::class)) {
-                throw new InvalidArgumentException("$class must be extEend of AbstractResource");
+                throw new InvalidArgumentException("$class must be extend of AbstractResource");
             }
 
             $currentPath = array_merge($path, [$class]);
@@ -68,8 +86,8 @@ class Scanner
             $context = new Context(
                 chain: collect($currentPath),
                 resourceClass: $class,
-                volume: $volume,
                 class: $class,
+                volume: $volume,
             );
 
             $resourceTree[$class] = [
@@ -104,8 +122,8 @@ class Scanner
                             reflectionMethod: $reflectionMethod,
                             chain: collect($currentPath),
                             resourceClass: $class,
-                            volume: $effectiveVolume,
                             class: $returnClass,
+                            volume: $effectiveVolume,
                         );
 
 

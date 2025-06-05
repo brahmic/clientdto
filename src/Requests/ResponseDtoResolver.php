@@ -164,6 +164,10 @@ class ResponseDtoResolver
 
             $this->log->add("DTO `" . class_basename($dto) . "` resolved!");
 
+            if (method_exists($this->clientRequest, 'beforeReturn')) {
+                $this->clientRequest->beforeReturn($dto);
+            }
+
             return $dto;
         }
 

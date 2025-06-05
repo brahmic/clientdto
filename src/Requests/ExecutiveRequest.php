@@ -64,6 +64,7 @@ class ExecutiveRequest implements Arrayable
      */
     public function send(): PromiseInterface|Response
     {
+
         return match ($this->clientRequest->getMethod()) {
             'get' => $this->get(),
             'post' => $this->post(),

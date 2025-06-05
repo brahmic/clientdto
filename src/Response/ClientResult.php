@@ -16,7 +16,7 @@ class ClientResult implements Arrayable
         $this->fill($data);
     }
 
-    public function value(): ?array
+    public function data(): ?array
     {
         return $this->data;
     }
@@ -28,9 +28,9 @@ class ClientResult implements Arrayable
         return $this;
     }
 
-    public function fill(null|array|object $data = null): void
+    public function fill(null|array|string|object $data = null): void
     {
-        if (is_array($data)) {
+        if (is_array($data) || is_string($data)) {
             $this->data = $data;
         } else {
             if ($data) {
@@ -71,6 +71,12 @@ class ClientResult implements Arrayable
         }
 
         return $this;
+    }
+    public function get(string $key, ?bool $default = null): mixed
+    {
+        $this->canArray();
+
+        return Arr::get($this->data, $key, $default);
     }
 
     public function prepend(string $key, mixed $value): static

@@ -21,5 +21,6 @@ interface PaginableRequestInterface
 
     public function mass(): PaginatedRequest;
 
+    public static function getVisualization(): string;
     //public function send(): ClientResponseInterface|ClientResponse;
 }

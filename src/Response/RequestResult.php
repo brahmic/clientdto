@@ -6,7 +6,6 @@ use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\GroupedRequest;
 use Brahmic\ClientDTO\Requests\ExecutiveRequest;
 use Brahmic\ClientDTO\Support\Log;
-use Closure;
 use Illuminate\Http\Client\Response;
 
 class RequestResult
@@ -42,13 +41,13 @@ class RequestResult
 
     public function value(): mixed
     {
-        return $this->result->value();
+        return $this->result->data();
     }
 
 
     public function hasError(): bool
     {
-        return is_null($this->result->value());
+        return is_null($this->resolved);
     }
 
     public function getResult(): ClientResult
