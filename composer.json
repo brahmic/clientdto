@@ -22,12 +22,10 @@
     "phpunit/phpunit": "^12.1@dev",
     "filp/whoops": "^2.17"
   },
-  "repositories": [
-  ],
+  "repositories": [],
   "license": "MIT",
   "autoload": {
-    "files": [
-    ],
+    "files": [],
     "psr-4": {
       "Brahmic\\ClientDTO\\": "./src"
     }
@@ -38,5 +36,6 @@
         "Brahmic\\ClientDTO\\ClientDTOServiceProvider"
       ]
     }
-  }
+  },
+  "version": "1.0.1"
 }
