@@ -122,8 +122,8 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
         return $this->requestResult->hasFile();
     }
 
-    protected function modifyResult(ClientResult $clientResult): ClientResult
+    public function modifyResult(): ClientResult
     {
-        return $clientResult;
+        return $this->requestResult->modifyResult();
     }
 }
