@@ -9,6 +9,7 @@ use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientRequestInterface;
 use Brahmic\ClientDTO\Contracts\WrappedDtoInterface;
 use Brahmic\ClientDTO\Exceptions\CreateDtoValidationException;
+use Brahmic\ClientDTO\Exceptions\UnexpectedDataException;
 use Brahmic\ClientDTO\Support\Log;
 use Brahmic\ClientDTO\Support\MimeTypes;
 use Exception;
@@ -70,7 +71,7 @@ class ResponseDtoResolver
             } else {
 
                 if ($this->clientRequest->wantsJson()) {
-                    throw new Exception('Invalid response: expected JSON');
+                    throw new UnexpectedDataException('Invalid response: expected JSON');
                 }
 
                 $this->resolved = $this->response->body();

@@ -8,6 +8,7 @@ use Brahmic\ClientDTO\Contracts\GroupedRequest;
 use Brahmic\ClientDTO\Exceptions\AttemptNeededException;
 use Brahmic\ClientDTO\Exceptions\CreateDtoValidationException;
 use Brahmic\ClientDTO\Exceptions\FailedNestedRequestException;
+use Brahmic\ClientDTO\Exceptions\UnexpectedDataException;
 use Brahmic\ClientDTO\Exceptions\UnresolvedResponseException;
 use Brahmic\ClientDTO\Response\ClientResponse;
 use Brahmic\ClientDTO\Response\RequestResult;
@@ -167,6 +168,8 @@ class RequestExecutor
             $this->setResponseStatus(HttpResponse::HTTP_OK, 'Successful');
         } catch (AttemptNeededException $exception) {
             $this->handleAttemptNeededException($exception, $this->response);
+        } catch (UnexpectedDataException $exception) {
+            $this->handleUnexpectedDataException($exception, $this->response);
         }
     }
 
@@ -371,6 +374,17 @@ class RequestExecutor
 
         if ($this->hasAttempts()) {
             $this->response = $this->sendRequest();
+        }
+    }
+    protected function handleUnexpectedDataException(UnexpectedDataException $exception, Response $response): void
+    {
+        $this->setResponseStatus(HttpResponse::HTTP_INTERNAL_SERVER_ERROR, $exception->getMessage());
+
+        if (app()->hasDebugModeEnabled()) {
+            $this->details = [
+                $exception->getMessage(),
+                "{$exception->getFile()} at line {$exception->getLine()}",
+            ];
         }
     }
 
