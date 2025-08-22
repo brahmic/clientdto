@@ -1,6 +1,7 @@
 {
   "name": "brahmic/clientdto",
   "description": "",
+  "version": "1.0.5",
   "minimum-stability": "dev",
   "homepage": "https://github.com/brahmic/clientdto",
   "authors": [
@@ -36,6 +37,5 @@
         "Brahmic\\ClientDTO\\ClientDTOServiceProvider"
       ]
     }
-  },
-  "version": "1.0.4"
+  }
 }
