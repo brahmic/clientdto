@@ -66,7 +66,7 @@ class ClientResponse implements ClientResponseInterface, Arrayable, Responsable
             }
         }
 
-        return response()->json($this->toArray(), $this->status);
+        return response()->json($this->toArray(), $this->status, [], JSON_UNESCAPED_UNICODE);
     }
 
     public function resolved(): mixed
