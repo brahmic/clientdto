@@ -43,7 +43,17 @@ class ExecutiveRequest implements Arrayable
         $this->setBodyParams();
 
         $this->url = $this->clientRequest->getUrl();
-        $this->fullUrl = $this->getUrlWithQueryParams();
+
+        /*
+         * Важно: ряд API исключают возможность query параметров при POST запросах, по этому надо брать чистый адрес.
+         * Но в ряде случаев это допустимо и нужно, по идее todo должен работать декларативный  метод в запросах, но это не проверено.
+         */
+        match ($this->clientRequest->getMethod()) {
+            'get' => $this->fullUrl = $this->getUrlWithQueryParams(),
+            'post' => $this->fullUrl = $this->url,
+            default => throw new InvalidArgumentException("Unsupported request type."),
+        };
+
         $this->headers = $this->clientRequest->getClientDTO()->getHeaders();
         $this->bodyFormat = $this->clientRequest->getBodyFormat() ?: $this->clientRequest->getClientDTO()->getBodyFormat() ?: RequestOptions::JSON;;
         $this->timeout = $this->clientRequest->getTimeout() ?: $this->clientRequest->getClientDTO()->getTimeout();
