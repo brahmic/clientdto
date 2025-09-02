@@ -2,6 +2,7 @@
 
 namespace Brahmic\ClientDTO\Requests;
 
+use Brahmic\ClientDTO\Cache\RequestCacheManager;
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientResponseInterface;
 use Brahmic\ClientDTO\Contracts\GroupedRequest;
@@ -46,14 +47,27 @@ class RequestExecutor
     private ?AbstractRequest $clientRequest = null;
     //private ?string $responseClass = null;
 
+    private ?RequestCacheManager $cacheManager = null;
+
     public function __construct()
     {
         $this->log = new Log();
+        $this->cacheManager = new RequestCacheManager();
     }
 
 
     public function executeGrouped(AbstractRequest $clientRequest)
     {
+        // 1. Проверяем кеш для всей группы
+        $cachedResult = $this->cacheManager->getFromCache($clientRequest);
+        if ($cachedResult !== null) {
+            $this->resolved = $cachedResult;
+            $this->message = 'Successful (cached)';
+            $this->statusCode = 200;
+            return;
+        }
+
+        // 2. Обычное выполнение группы
         $result = collect();
 
         $this->message = 'Successful';
@@ -73,6 +87,9 @@ class RequestExecutor
         });
 
         $this->resolved = $result;
+
+        // 3. Кешируем результат всей группы
+        $this->cacheManager->storeInCache($clientRequest, $this->resolved);
     }
 
     /**
@@ -99,10 +116,19 @@ class RequestExecutor
                 $this->executeGrouped($this->clientRequest);
 
             } else {
-
                 $this->executiveRequest = new ExecutiveRequest($this->clientRequest);
 
-                $this->sendRequest();
+                // 1. Сначала проверяем кеш ДО создания HTTP-запроса
+                $cachedResult = $this->cacheManager->getFromCache($this->clientRequest);
+                
+                if ($cachedResult !== null) {
+                    // Найден кеш - используем его
+                    $this->resolved = $cachedResult;
+                    $this->setResponseStatus(200, 'Successful (cached)');
+                } else {
+                    // 2. Кеша нет - выполняем HTTP-запрос
+                    $this->sendRequest();
+                }
             }
 
         } catch (CreateDtoValidationException $exception) {
@@ -162,8 +188,13 @@ class RequestExecutor
      */
     protected function handleSuccessfulResponse(): void
     {
+
         try {
+            // 1. Обработка ответа (существующая логика)
             $this->resolved = new ResponseDtoResolver($this->clientRequest, $this->response)->resolve();
+
+            // 2. Кеширование ПОСЛЕ полной обработки (включая postProcess)
+            $this->cacheManager->storeInCache($this->clientRequest, $this->resolved);
 
             $this->setResponseStatus(HttpResponse::HTTP_OK, 'Successful');
         } catch (AttemptNeededException $exception) {

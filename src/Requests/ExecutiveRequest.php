@@ -74,7 +74,6 @@ class ExecutiveRequest implements Arrayable
      */
     public function send(): PromiseInterface|Response
     {
-
         return match ($this->clientRequest->getMethod()) {
             'get' => $this->get(),
             'post' => $this->post(),
@@ -95,7 +94,6 @@ class ExecutiveRequest implements Arrayable
     private function get(): PromiseInterface|Response
     {
         $request = Http::withHeaders($this->headers);
-
         if (!empty($this->cookies)) {
             $request = $request->withCookies($this->cookies, parse_url($this->url, PHP_URL_HOST));
         }
@@ -131,6 +129,7 @@ class ExecutiveRequest implements Arrayable
 
     private function setQueryParams(): void
     {
+        $this->clientRequest->queryParams();
         $chainQueryParams = $this->clientRequest->getChain()->reduce(function ($carry, ChainInterface $chain) {
             return array_merge($carry, $chain->getQueryParams());
         }, []);

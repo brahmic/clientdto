@@ -8,6 +8,7 @@
 - ✅ Working with files and archives
 - ✅ Support for queries with pagination
 - ✅ Additional query attempts with flexible configuration
+- ✅ **HTTP Request Caching** - automatic caching of successful requests
 - ✅ Simplifies working with API
 
 ### Using examples
@@ -46,6 +47,45 @@
     $fileResponse->files()->saveTo('path/someReport');
 ```
 
+### HTTP Request Caching ⚡
+
+Automatic caching of successful HTTP requests with flexible control levels:
+
+```php
+class CustomClient extends ClientDTO
+{
+    public function __construct(array $config = [])
+    {
+        $this
+            ->setBaseUrl('https://api.example.com/')
+            ->cache(true)           // Metadata caching (ResourceMap)
+            ->cacheRequests(true)   // 🆕 HTTP request caching
+            ->cacheTtl(3600)        // 🆕 Default TTL: 1 hour
+            ->setTimeout(60);
+    }
+}
+
+// Basic usage - automatic caching
+$users1 = $client->users()->list()->set(page: 1)->send()->resolved(); // HTTP request + cache
+$users2 = $client->users()->list()->set(page: 1)->send()->resolved(); // From cache ⚡
+$users3 = $client->users()->list()->set(page: 2)->send()->resolved(); // New HTTP request
+
+// Instance-level control
+$freshData = $client->users()->show()
+    ->set(id: '123')
+    ->skipCache()           // 🆕 Skip cache (fresh HTTP request)
+    ->send()->resolved();
+
+$forcedCache = $client->users()->show()
+    ->set(id: '123') 
+    ->skipCache(false)      // 🆕 Force cache update (HTTP request + cache)
+    ->send()->resolved();
+
+// Cache management
+$client->clearRequestCache();                    // Clear all request cache
+$client->clearRequestCacheByTags(['users']);    // Clear by tags
+```
+
 ### Custom client example
 
 ```php
@@ -55,11 +95,14 @@ class CustomClient extends ClientDTO
     public function __construct(array $config = [])
     {
         $this
-            ->cache(false)
+            ->cache(false)                  // Metadata caching disabled
+            ->cacheRequests(true)           // 🆕 HTTP request caching enabled
+            ->cacheTtl(1800)                // 🆕 Default TTL: 30 minutes
             ->setBaseUrl('https://customapiservice.com/')
             ->setTimeout(60)
             ->onClearCache(function () {
                 $this->report()->clearCache();
+                $this->clearRequestCache();  // 🆕 Also clear HTTP request cache
             })
             ->setDebug(app()->hasDebugModeEnabled());
     }
@@ -155,6 +198,11 @@ class Person extends AbstractResource
 ### Request example
 
 ```php
+use Brahmic\ClientDTO\Attributes\Cacheable;
+use Brahmic\ClientDTO\Contracts\CacheableRequestInterface;
+
+// Declarative caching with attributes
+#[Cacheable(ttl: 1800, tags: ['children', 'person'], enabled: true)]
 class Children extends GetRequest implements PaginableRequestInterface
 {
     use Uuid, Paginable;
@@ -165,7 +213,6 @@ class Children extends GetRequest implements PaginableRequestInterface
     protected ?string $dto = MyPageableResultDto::class;
 
     public const string URI = 'person/{uuid}/children';
-
 
     //Optional. This name will be used when sending a request to the remote API instead of "filterText"
     #[MapOutputName('filter_text')]
@@ -184,6 +231,38 @@ class Children extends GetRequest implements PaginableRequestInterface
     }
 }
 
+// Programmatic caching control
+class PersonProfile extends GetRequest implements CacheableRequestInterface
+{
+    public const string URI = 'person/{uuid}/profile';
+    protected ?string $dto = PersonProfileDto::class;
+
+    public string $uuid;
+    public ?bool $include_details = false;
+
+    public function set(string $uuid, ?bool $include_details = false): static
+    {
+        return $this->assignSetValues();
+    }
+
+    // 🆕 Programmatic cache control
+    public function getCacheTtl(): ?int
+    {
+        return $this->include_details ? 300 : 3600; // 5 min vs 1 hour
+    }
+
+    public function getCacheTags(): array
+    {
+        return ['person', "person:{$this->uuid}"];
+    }
+
+    public function shouldCache(mixed $resolved): bool
+    {
+        // Only cache if person is active
+        return $resolved instanceof PersonProfileDto && $resolved->is_active;
+    }
+}
+
 ```
 
 ### File Request example
@@ -191,13 +270,13 @@ class Children extends GetRequest implements PaginableRequestInterface
 ```php
 class PersonReport extends GetRequest
 {
-use Uuid;
+    use Uuid;
 
     public const string NAME = 'Get report';    //optional
 
     public const string URI = 'person/{uuid}/report';
 
-    protected ?string $dto = FileResponse::class;
+    protected ?string $dto = FileResponse::class; // 📝 FileResponse is NOT cached by default
 
     public Format $event = Format::Pdf;
 
@@ -211,4 +290,31 @@ use Uuid;
         $fileResponse->file()->openInBrowser(false)->prependFilename(self::NAME);
     }
 }
+```
+
+### Caching Priorities 🎯
+
+Cache control follows this priority order (highest to lowest):
+
+1. **Instance level**: `->skipCache()` / `->skipCache(false)`
+2. **Class level**: `#[Cacheable(enabled: true/false)]` attribute  
+3. **Client level**: `->cacheTtl(seconds)` for default TTL
+4. **Global level**: `->cacheRequests(true/false)`
+
+### TTL Priority (highest to lowest):
+
+1. **Method level**: `getCacheTtl()` in request (programmatic)
+2. **Class level**: `#[Cacheable(ttl: seconds)]` attribute
+3. **Client level**: `->cacheTtl(seconds)` 🆕
+4. **Config level**: `CacheConfig::getDefaultTtl()`
+
+```php
+// Examples of priority in action:
+$client->cacheRequests(false);  // Globally disabled
+
+// But this request will update cache (skipCache(false) forces HTTP + cache)
+$data = $client->users()->show()->set(id: '123')->skipCache(false)->send()->resolved();
+
+// This request will never be cached (highest priority)
+$fresh = $client->users()->show()->set(id: '123')->skipCache()->send()->resolved();
 ```

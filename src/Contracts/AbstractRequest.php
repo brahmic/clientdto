@@ -3,6 +3,7 @@
 namespace Brahmic\ClientDTO\Contracts;
 
 use Brahmic\ClientDTO\ClientDTO;
+use Brahmic\ClientDTO\Contracts\CacheableRequestInterface;
 use Brahmic\ClientDTO\Requests\GetRequest;
 use Brahmic\ClientDTO\Requests\PostRequest;
 use Brahmic\ClientDTO\Requests\RequestExecutor;
@@ -10,6 +11,7 @@ use Brahmic\ClientDTO\Resolver\ClientResolver;
 use Brahmic\ClientDTO\ResourceScanner\Context;
 use Brahmic\ClientDTO\Response\ClientResponse;
 use Brahmic\ClientDTO\Response\ClientResult;
+use Brahmic\ClientDTO\Response\FileResponse;
 use Brahmic\ClientDTO\Response\RequestResult;
 use Brahmic\ClientDTO\Support\Data;
 use Brahmic\ClientDTO\Support\PropertyContext;
@@ -49,6 +51,16 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
     private array $setterData = [];
 
     private array $exceptions = [];
+
+    /**
+     * Флаг пропуска кеширования для данного экземпляра запроса
+     */
+    private bool $skipCache = false;
+
+    /**
+     * Флаг, показывающий было ли явно вызвано управление кешированием
+     */
+    private bool $skipCacheExplicitlySet = false;
 
 
     /**
@@ -358,5 +370,73 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
     public function getKey()
     {
         return $this->getDeclaration()['key'];
+    }
+
+    // =====================================================
+    // Методы для кеширования (CacheableRequestInterface)
+    // =====================================================
+
+    /**
+     * Время жизни кеша в секундах
+     * null - использовать TTL по умолчанию
+     */
+    public function getCacheTtl(): ?int
+    {
+        return null;
+    }
+
+    /**
+     * Теги для группировки кеша
+     * Используются для групповой инвалидации
+     */
+    public function getCacheTags(): array
+    {
+        return [];
+    }
+
+    /**
+     * Должен ли данный результат кешироваться
+     * По умолчанию кешируем всё кроме FileResponse
+     */
+    public function shouldCache(mixed $resolved): bool
+    {
+        return !($resolved instanceof FileResponse);
+    }
+
+    // =====================================================
+    // Методы управления кешированием на уровне экземпляра
+    // =====================================================
+
+    /**
+     * Управление кешированием для данного запроса
+     * 
+     * @param bool $skip true - пропустить кеш полностью, false - принудительно обновить кеш
+     * @return $this
+     */
+    public function skipCache(bool $skip = true): self
+    {
+        $this->skipCache = $skip;
+        $this->skipCacheExplicitlySet = true;
+        return $this;
+    }
+
+    /**
+     * Проверить, должен ли запрос пропускать кеширование
+     * 
+     * @return bool
+     */
+    public function shouldSkipCache(): bool
+    {
+        return $this->skipCache;
+    }
+
+    /**
+     * Проверить, нужно ли принудительно обновить кеш (skipCache(false))
+     * 
+     * @return bool
+     */
+    public function isForceCacheEnabled(): bool
+    {
+        return $this->skipCacheExplicitlySet && !$this->skipCache;
     }
 }

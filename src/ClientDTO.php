@@ -2,6 +2,7 @@
 
 namespace Brahmic\ClientDTO;
 
+use Brahmic\ClientDTO\Cache\RequestCacheManager;
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ChainInterface;
 use Brahmic\ClientDTO\Contracts\ClientDTOInterface;
@@ -32,6 +33,10 @@ class ClientDTO implements ClientDTOInterface, ChainInterface
     private array $logs = [];
 
     private bool $cacheEnabled = true;
+
+    private bool $requestCacheEnabled = true;
+
+    private ?int $requestCacheTtl = null;
 
     public function logs(): array
     {
@@ -146,6 +151,65 @@ class ClientDTO implements ClientDTOInterface, ChainInterface
         });
 
         ClientResolver::getInstance()->clearCache(static::class);
+        
+        // Также очищаем кеш запросов
+        $this->clearRequestCache();
+    }
+
+    // =====================================================
+    // Методы для кеширования HTTP-запросов
+    // =====================================================
+
+    /**
+     * Включить/выключить кеширование HTTP-запросов
+     */
+    public function cacheRequests(bool $enabled = true): self
+    {
+        $this->requestCacheEnabled = $enabled;
+        return $this;
+    }
+
+    /**
+     * Установить TTL по умолчанию для кеширования HTTP-запросов
+     */
+    public function requestCacheTtl(?int $ttl = null): self
+    {
+        $this->requestCacheTtl = $ttl;
+        return $this;
+    }
+
+    /**
+     * Проверить, включено ли кеширование запросов
+     */
+    public function ifRequestCacheEnabled(): bool
+    {
+        return $this->requestCacheEnabled;
+    }
+
+    /**
+     * Получить TTL по умолчанию для кеширования HTTP-запросов
+     */
+    public function getRequestCacheTtl(): ?int
+    {
+        return $this->requestCacheTtl;
+    }
+
+    /**
+     * Очистить кеш запросов
+     */
+    public function clearRequestCache(?string $pattern = null): void
+    {
+        $cacheManager = new RequestCacheManager();
+        $cacheManager->clearCache($pattern);
+    }
+
+    /**
+     * Очистить кеш запросов по тегам
+     */
+    public function clearRequestCacheByTags(array $tags): void
+    {
+        $cacheManager = new RequestCacheManager();
+        $cacheManager->clearCacheByTags($tags);
     }
 
 }
