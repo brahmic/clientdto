@@ -10,10 +10,12 @@ use Brahmic\ClientDTO\Exceptions\CreateDtoValidationException;
 use Brahmic\ClientDTO\Exceptions\FailedNestedRequestException;
 use Brahmic\ClientDTO\Exceptions\UnexpectedDataException;
 use Brahmic\ClientDTO\Exceptions\UnresolvedResponseException;
+use Brahmic\ClientDTO\Requests\ResponseDtoResolver;
 use Brahmic\ClientDTO\Response\ClientResponse;
 use Brahmic\ClientDTO\Response\RequestResult;
 use Brahmic\ClientDTO\Support\Log;
 use GuzzleHttp\Promise\PromiseInterface;
+use GuzzleHttp\Psr7\Response as Psr7Response;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
@@ -40,6 +42,7 @@ class RequestExecutor
 
     private ?ExecutiveRequest $executiveRequest = null;
     private ?Response $response = null;
+    private ?string $cachedRawData = null;
 
     private bool $isAttemptNeeded = false;
 
@@ -94,6 +97,36 @@ class RequestExecutor
 
         try {
 
+            // Попытка чтения из кеша перед HTTP
+            if (!($this->clientRequest instanceof GroupedRequest)) {
+                $cached = $this->tryGetFromCache($this->clientRequest);
+                if ($cached !== null) {
+                    // tryGetFromCache возвращает resolved данные, применяем postProcess
+                    $this->resolved = $this->applyPostProcess($this->clientRequest, $cached);
+                    $this->setResponseStatus(HttpResponse::HTTP_OK, 'Successful (cached)');
+
+                    // Если включено RAW-кеширование и в кеше есть сырые данные
+                    // то RequestResult.rawData должен быть заполнен
+                    // Признак RAW/DTO есть внутри CacheManager::get() → CachedResponse
+                    // Здесь tryGetFromCache вернул только resolved, поэтому rawData восстанавливаем через details
+                    // (rawData будет заполнен ниже через $this->cachedRawData, если tryGetFromCache это установит)
+
+                    $this->finish();
+
+                    return new RequestResult(
+                        $this->resolved,
+                        null,
+                        $this->clientRequest,
+                        null,
+                        $this->log,
+                        $this->message,
+                        $this->statusCode,
+                        $this->details,
+                        $this->cachedRawData,
+                    );
+                }
+            }
+
             if ($this->clientRequest instanceof GroupedRequest) {
 
                 $this->executeGrouped($this->clientRequest);
@@ -123,6 +156,11 @@ class RequestExecutor
             $this->handleGenericException($exception);
         }
 
+        // Попытка сохранить в кеш после успешного выполнения
+        if ($this->resolved !== null && !($this->clientRequest instanceof GroupedRequest)) {
+            $this->tryStoreInCache($this->clientRequest, $this->resolved, $this->response?->body());
+        }
+
         $this->finish();
 
         return new RequestResult(
@@ -134,6 +172,7 @@ class RequestExecutor
             $this->message,
             $this->statusCode,
             $this->details,
+            $this->cachedRawData ?? $this->response?->body(),
         );
     }
 
@@ -165,6 +204,9 @@ class RequestExecutor
         try {
             $this->resolved = new ResponseDtoResolver($this->clientRequest, $this->response)->resolve();
 
+            // Централизованное применение postProcess
+            $this->resolved = $this->applyPostProcess($this->clientRequest, $this->resolved);
+
             $this->setResponseStatus(HttpResponse::HTTP_OK, 'Successful');
         } catch (AttemptNeededException $exception) {
             $this->handleAttemptNeededException($exception, $this->response);
@@ -194,6 +236,9 @@ class RequestExecutor
         if ($this->response->successful()) {
 
             $this->handleSuccessfulResponse();
+            
+            // СОХРАНЕНИЕ В КЕШ ПОСЛЕ УСПЕШНОГО ОТВЕТА
+            $this->tryStoreInCache($this->clientRequest, $this->resolved, $this->response->body());
         } else {
             $this->handleUnsuccessfulResponse();
         }
@@ -259,6 +304,7 @@ class RequestExecutor
     protected function handleCreateDtoValidationException(CreateDtoValidationException $exception): void
     {
         if (app()->hasDebugModeEnabled()) {
+
             $message = "The data received does not correspond to the declaration of {$exception->getClass()}. Please check field types and the specified DTO class, also `handle` method of the client, resources or request";
 
 
@@ -398,5 +444,127 @@ class RequestExecutor
     {
         $this->log->add($this->message);
         $this->log->add('Finish');
+    }
+
+    /**
+     * Пересобрать DTO из RAW данных (для RAW кеширования)
+     */
+    private function processRawResponse(AbstractRequest $request, string $rawData): mixed
+    {
+        // Создаем фиктивный Response из RAW данных с правильными заголовками JSON
+        $fakeResponse = new Response(
+            new Psr7Response(200, [
+                'Content-Type' => 'application/json',
+                'Content-Length' => strlen($rawData)
+            ], $rawData)
+        );
+        
+        // Используем тот же резолвер, что и для обычных запросов
+        return (new ResponseDtoResolver($request, $fakeResponse))->resolve();
+    }
+
+    // Новые методы для кеширования HTTP запросов
+
+    /**
+     * Попытаться получить данные из кеша (graceful degradation)
+     */
+    private function tryGetFromCache(AbstractRequest $request): mixed
+    {
+        try {
+            $cacheManager = new \Brahmic\ClientDTO\Cache\CacheManager();
+            
+            if (!$cacheManager->shouldUseCache($request)) {
+                return null;
+            }
+            
+            $cached = $cacheManager->get($request);
+            if ($cached !== null) {
+                $this->log->add($cached->isRaw ? "Cache hit (RAW)" : "Cache hit (DTO)");
+
+                if ($cached->isRaw) {
+                    // RAW кеширование: пересобираем DTO из RAW данных
+                    $this->cachedRawData = $cached->rawResponse;
+                    
+                    // Пересобираем DTO из RAW данных каждый раз
+                    $rawData = $cached->rawResponse;
+                    $resolvedFromRaw = $this->processRawResponse($request, $rawData);
+                    
+                    return $resolvedFromRaw;
+                } else {
+                    // DTO кеширование: используем готовый DTO + устанавливаем raw данные для saveAs()
+                    $this->cachedRawData = $cached->rawResponse;
+                    return $cached->resolved;
+                }
+            }
+            
+            return null;
+            
+        } catch (\Throwable $e) {
+            // Кеш недоступен - логируем и продолжаем без кеша
+            $this->log->add("Cache read failed: {$e->getMessage()}");
+            
+            if ($this->clientRequest->isDebug()) {
+                $this->details[] = "Cache unavailable: {$e->getMessage()}";
+            }
+            
+            return null; // = делаем HTTP запрос
+        }
+    }
+
+    /**
+     * Попытаться сохранить результат в кеш (graceful degradation)
+     */
+    private function tryStoreInCache(AbstractRequest $request, mixed $resolved, ?string $rawData): void
+    {
+        try {
+            $cacheManager = new \Brahmic\ClientDTO\Cache\CacheManager();
+            
+            if (!$cacheManager->shouldStoreCache($request)) {
+                return;
+            }
+            
+            // Не кешируем файлы
+            if ($resolved instanceof \Brahmic\ClientDTO\Response\FileResponse) {
+                $this->log->add("Skipping cache: FileResponse");
+                return;
+            }
+            
+            // Не кешируем null результаты
+            if ($resolved === null) {
+                $this->log->add("Skipping cache: null result"); 
+                return;
+            }
+            
+            // Проверяем размер кешируемых данных: для RAW — по сырому ответу, для DTO — по объекту
+            $dataForSizeCheck = $request->getClientDTO()->isRawCacheEnabled() ? ($rawData ?? '') : $resolved;
+            if ($cacheManager->isObjectTooLarge($dataForSizeCheck, $request)) {
+                $this->log->add("Skipping cache: object exceeds requestCacheSize");
+                return;
+            }
+            
+            $cacheManager->store($request, $resolved, $rawData);
+            $this->log->add("Stored in cache");
+            
+        } catch (\Throwable $e) {
+            // Не смогли закешировать - не критично, продолжаем
+            $this->log->add("Cache write failed: {$e->getMessage()}");
+            
+            if ($this->clientRequest->isDebug()) {
+                $this->details[] = "Cache storage failed: {$e->getMessage()}";
+            }
+            
+            // НЕ бросаем исключение дальше!
+        }
+    }
+
+    /**
+     * Централизованное применение postProcess
+     */
+    private function applyPostProcess(AbstractRequest $request, mixed $resolved): mixed
+    {
+        if (method_exists($request, 'postProcess') && $resolved !== null) {
+            $request->postProcess($resolved);
+        }
+        return $resolved;
     }
 }

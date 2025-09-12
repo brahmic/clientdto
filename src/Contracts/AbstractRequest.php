@@ -50,6 +50,9 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
 
     private array $exceptions = [];
 
+    // Новые свойства для управления кешированием
+    private bool $skipCacheFlag = false;
+    private bool $forceCacheFlag = false;
 
     /**
      * Use for grouped requests
@@ -230,6 +233,9 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
         return $argsWithNames;
     }
 
+    /**
+     * @return array|Arrayable
+     */
     public function validateRequest(): array|Arrayable
     {
         return $this::validate(get_object_vars($this));
@@ -350,6 +356,42 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
         return $props;
     }
 
+    // Новые методы для управления кешированием запросов
+    
+    /**
+     * Игнорировать кеш для этого запроса (но сохранять результат в кеш)
+     */
+    public function skipCache(): static
+    {
+        $this->skipCacheFlag = true;
+        return $this;
+    }
+
+    /**
+     * Принудительно кешировать этот запрос (игнорирует все настройки)
+     */
+    public function forceCache(): static
+    {
+        $this->forceCacheFlag = true;
+        return $this;
+    }
+
+    /**
+     * Проверить установлен ли флаг skipCache
+     */
+    public function shouldSkipCache(): bool
+    {
+        return $this->skipCacheFlag;
+    }
+
+    /**
+     * Проверить установлен ли флаг forceCache
+     */
+    public function shouldForceCache(): bool
+    {
+        return $this->forceCacheFlag;
+    }
+
     public function getRequestClasses(): Collection
     {
         return collect();
@@ -358,5 +400,29 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
     public function getKey()
     {
         return $this->getDeclaration()['key'];
+    }
+
+    public static function defaultRules(): array
+    {
+        $reflection = new \ReflectionClass(static::class);
+        $rules = [];
+
+        foreach ($reflection->getProperties(\ReflectionProperty::IS_PUBLIC) as $property) {
+            $type = $property->getType();
+            $name = $property->getName();
+
+            // string = required, ?string = nullable
+            if ($type instanceof \ReflectionNamedType) {
+                $rules[$name] = $type->allowsNull() ? 'nullable' : 'required';
+                $rules[$name] .= match($type->getName()) {
+                    'string' => '|string|max:255',
+                    'bool' => '|boolean',
+                    'int' => '|integer',
+                    default => '|string'
+                };
+            }
+        }
+
+        return $rules;
     }
 }

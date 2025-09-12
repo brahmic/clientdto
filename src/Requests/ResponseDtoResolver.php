@@ -74,14 +74,19 @@ class ResponseDtoResolver
                     throw new UnexpectedDataException('Invalid response: expected JSON');
                 }
 
-                $this->resolved = $this->response->body();
+                $body = $this->response->body();
+
+                if (trim($body) === 'null') {
+                    return null;
+                }
+
+                $this->resolved = $body;
             }
 
         }
 
-        if (method_exists($this->clientRequest, 'postProcess') && $this->resolved) {
-            $this->clientRequest->postProcess($this->resolved);
-        }
+        // postProcess теперь выполняется централизованно в RequestExecutor::applyPostProcess()
+        // Это предотвращает дублирование для кешированных данных
 
         return $this->resolved;
     }
@@ -154,7 +159,11 @@ class ResponseDtoResolver
                     if ($dtoCollectionOf) {
                         $dto = $dto->map(function ($value) use ($dtoCollectionOf) {
                             $value = $this->handle($dtoCollectionOf->class, $value);
-                            return $this->validateAndCreate($dtoCollectionOf->class, $value);
+                            try {
+                                return $this->validateAndCreate($dtoCollectionOf->class, $value);
+                            } catch (ValidationException $exception) {
+                                throw new CreateDtoValidationException($exception->validator, $this->response)->setClass($dtoCollectionOf->class);
+                            }
                         });
                     }
                 }

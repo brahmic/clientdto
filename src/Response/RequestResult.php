@@ -22,6 +22,7 @@ class RequestResult
         public readonly ?string           $message = null,
         public readonly ?int              $statusCode = null,
         public readonly ?array            $details = null,
+        public readonly ?string           $rawData = null,      // Для поддержки ClientResponse::raw()
     )
     {
         $this->result = new ClientResult($resolved);

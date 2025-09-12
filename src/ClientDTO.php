@@ -33,6 +33,13 @@ class ClientDTO implements ClientDTOInterface, ChainInterface
 
     private bool $cacheEnabled = true;
 
+    // Новые свойства для кеширования HTTP запросов
+    private bool $requestCacheEnabled = false;
+    private bool $rawCacheEnabled = false;
+    private ?int $requestCacheSize = 1024 * 1024; // 1MB по умолчанию
+    private ?int $requestCacheTtl = null; // TTL в секундах (null - без ограничений)
+    private bool $postIdempotent = false;
+
     public function logs(): array
     {
         return $this->logs;
@@ -137,6 +144,91 @@ class ClientDTO implements ClientDTOInterface, ChainInterface
     public function getResourceMap(): ResourceMap
     {
         return ClientResolver::getInstance()->determineResourceMap(static::class);
+    }
+
+    // Новые методы для управления кешированием HTTP запросов
+    
+    /**
+     * Включить/выключить кеширование HTTP запросов
+     */
+    public function requestCache(bool $enabled = true): static
+    {
+        $this->requestCacheEnabled = $enabled;
+        return $this;
+    }
+
+    /**
+     * Управление уровнем кеширования (RAW данные vs DTO объекты)
+     */
+    public function requestCacheRaw(bool $enabled = true): static
+    {
+        $this->rawCacheEnabled = $enabled;
+        return $this;
+    }
+
+    /**
+     * Установить максимальный размер кешируемых объектов
+     * @param int|null $bytes Размер в байтах (null или 0 - без ограничений)
+     */
+    public function requestCacheSize(?int $bytes): static
+    {
+        $this->requestCacheSize = $bytes;
+        return $this;
+    }
+
+    /**
+     * Установить TTL (время жизни) для кеша запросов
+     * @param int|null $seconds TTL в секундах (null - без ограничений)
+     */
+    public function requestCacheTtl(?int $seconds): static
+    {
+        $this->requestCacheTtl = $seconds;
+        return $this;
+    }
+
+    /**
+     * Режим идемпотентности POST запросов
+     * @param bool $enabled Если true, POST кешируются как идемпотентные
+     */
+    public function postIdempotent(bool $enabled = true): static
+    {
+        $this->postIdempotent = $enabled;
+        return $this;
+    }
+
+    /**
+     * Очистить кеш HTTP запросов ClientDTO
+     */
+    public function clearRequestCache(): void
+    {
+        $cacheManager = new \Brahmic\ClientDTO\Cache\CacheManager();
+        $cacheManager->clearAllClientDtoCache();
+    }
+
+    // Геттеры для кеширования запросов
+    public function isRequestCacheEnabled(): bool 
+    { 
+        return $this->requestCacheEnabled; 
+    }
+    
+    public function isRawCacheEnabled(): bool 
+    { 
+        return $this->rawCacheEnabled; 
+    }
+    
+    public function getRequestCacheSize(): ?int 
+    { 
+        return $this->requestCacheSize; 
+    }
+    
+    public function getRequestCacheTtl(): ?int 
+    { 
+        return $this->requestCacheTtl; 
+    }
+    
+    public function isPostIdempotent(): bool 
+    { 
+        return $this->postIdempotent; 
     }
 
     public function clearCache(): void

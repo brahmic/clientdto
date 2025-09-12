@@ -8,6 +8,7 @@
 - ✅ Working with files and archives
 - ✅ Support for queries with pagination
 - ✅ Additional query attempts with flexible configuration
+- ✅ **HTTP Request Caching** - intelligent caching with RAW/DTO modes
 - ✅ Simplifies working with API
 
 ### Using examples
@@ -58,6 +59,11 @@ class CustomClient extends ClientDTO
             ->cache(false)
             ->setBaseUrl('https://customapiservice.com/')
             ->setTimeout(60)
+            ->requestCache()                    // Enable HTTP request caching
+            ->requestCacheRaw()                 // Enable RAW response caching
+            ->postIdempotent()                  // Allow POST request caching
+            ->requestCacheTtl(3600)             // Cache TTL: 1 hour
+            ->requestCacheSize(5 * 1024 * 1024) // Cache size limit: 5MB
             ->onClearCache(function () {
                 $this->report()->clearCache();
             })
@@ -210,5 +216,94 @@ use Uuid;
     {
         $fileResponse->file()->openInBrowser(false)->prependFilename(self::NAME);
     }
+}
+```
+
+## HTTP Request Caching
+
+ClientDTO provides intelligent HTTP request caching with support for both RAW and DTO modes.
+
+### Basic Configuration
+
+```php
+class MyClient extends ClientDTO
+{
+    public function __construct()
+    {
+        $this
+            ->requestCache()                    // Enable HTTP request caching
+            ->requestCacheRaw()                 // Enable RAW response caching (optional)
+            ->postIdempotent()                  // Allow POST request caching (optional)
+            ->requestCacheTtl(3600)             // Cache TTL: 1 hour (optional)
+            ->requestCacheSize(5 * 1024 * 1024); // Cache size limit: 5MB (optional)
+    }
+}
+```
+
+### Caching Methods
+
+| Method | Description | Default |
+|--------|-------------|---------|
+| `requestCache()` | Enable HTTP request caching | `false` |
+| `requestCacheRaw()` | Cache raw HTTP responses instead of DTOs | `false` |
+| `postIdempotent()` | Allow POST requests to be cached | `false` |
+| `requestCacheTtl(int $seconds)` | Set cache TTL in seconds | `null` (no limit) |
+| `requestCacheSize(int $bytes)` | Set max cache entry size | `1MB` |
+
+### Caching Modes
+
+**DTO Caching (default):**
+- Caches resolved DTO objects
+- Smaller memory footprint
+- Faster access to structured data
+
+**RAW Caching:**
+- Caches original HTTP response body
+- Preserves exact server response
+- Useful for debugging or when raw data is needed
+
+### Per-Request Control
+
+Use the `#[Cacheable]` attribute to control caching for specific requests:
+
+```php
+use Brahmic\ClientDTO\Attributes\Cacheable;
+
+#[Cacheable(enabled: true, ttl: 7200)]  // Cache for 2 hours
+class GetUserRequest extends GetRequest
+{
+    // This request will be cached regardless of global settings
+}
+
+#[Cacheable(enabled: false)]  // Never cache
+class CreateUserRequest extends PostRequest
+{
+    // This request will never be cached
+}
+```
+
+### Cache Behavior
+
+**Default Behavior:**
+- GET requests: Cached if `requestCache()` is enabled
+- POST requests: Not cached unless `postIdempotent()` is called
+- Cache keys include request class, method, URL, and parameters
+- RAW and DTO caches are separate (different cache keys)
+
+**Priority Order:**
+1. `#[Cacheable]` attribute on request class
+2. `postIdempotent()` setting for POST requests  
+3. Global `requestCache()` setting
+
+### Cache Management
+
+```php
+// Clear all ClientDTO caches
+$client->clearRequestCache();
+
+// Access cached response info
+$response = $client->users()->get()->send();
+if ($response->getMessage() === 'Successful (cached)') {
+    // Response came from cache
 }
 ```
