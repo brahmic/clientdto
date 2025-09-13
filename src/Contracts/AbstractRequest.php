@@ -404,24 +404,30 @@ abstract class AbstractRequest extends Data implements ClientRequestInterface, C
 
     public static function defaultRules(): array
     {
-        $reflection = new \ReflectionClass(static::class);
-        $rules = [];
 
-        foreach ($reflection->getProperties(\ReflectionProperty::IS_PUBLIC) as $property) {
-            $type = $property->getType();
-            $name = $property->getName();
+        $emptyData = static::empty();
 
-            // string = required, ?string = nullable
-            if ($type instanceof \ReflectionNamedType) {
-                $rules[$name] = $type->allowsNull() ? 'nullable' : 'required';
-                $rules[$name] .= match($type->getName()) {
-                    'string' => '|string|max:255',
-                    'bool' => '|boolean',
-                    'int' => '|integer',
-                    default => '|string'
-                };
-            }
-        }
+        // Генерируем правила на основе этой структуры
+        $rules =  static::getValidationRules($emptyData);
+
+//        $reflection = new \ReflectionClass(static::class);
+//        $rules = [];
+//
+//        foreach ($reflection->getProperties(\ReflectionProperty::IS_PUBLIC) as $property) {
+//            $type = $property->getType();
+//            $name = $property->getName();
+//
+//            // string = required, ?string = nullable
+//            if ($type instanceof \ReflectionNamedType) {
+//                $rules[$name] = $type->allowsNull() ? 'nullable' : 'required';
+//                $rules[$name] .= match($type->getName()) {
+//                    'string' => '|string|max:255',
+//                    'bool' => '|boolean',
+//                    'int' => '|integer',
+//                    default => '|string'
+//                };
+//            }
+//        }
 
         return $rules;
     }
