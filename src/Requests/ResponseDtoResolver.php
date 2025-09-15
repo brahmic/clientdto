@@ -7,6 +7,7 @@ use Brahmic\ClientDTO\Attributes\CollectionOf;
 use Brahmic\ClientDTO\Attributes\Wrapped;
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ClientRequestInterface;
+use Brahmic\ClientDTO\Contracts\ResolvedHandlerInterface;
 use Brahmic\ClientDTO\Contracts\WrappedDtoInterface;
 use Brahmic\ClientDTO\Exceptions\CreateDtoValidationException;
 use Brahmic\ClientDTO\Exceptions\UnexpectedDataException;
@@ -178,6 +179,9 @@ class ResponseDtoResolver
                 $this->clientRequest->beforeReturn($dto);
             }
 
+            // Применяем зарегистрированные обработчики resolved данных
+            $this->applyResolvedHandlers($dto);
+
             return $dto;
         }
 
@@ -302,6 +306,29 @@ class ResponseDtoResolver
     private function getClientRequestClass(): string
     {
         return $this->clientRequest::class;
+    }
+
+    /**
+     * Применяет зарегистрированные обработчики resolved данных
+     */
+    private function applyResolvedHandlers(mixed $dto): void
+    {
+        $handlers = $this->clientRequest->getClientDTO()->getResolvedHandlers();
+        
+        foreach ($handlers as $handlerData) {
+            // Проверяем, подходит ли обработчик для данного класса DTO
+            if (!$handlerData['dtoClass'] || 
+                (is_object($dto) && $dto instanceof $handlerData['dtoClass'])) {
+                
+                $handler = $handlerData['handler'];
+                
+                if ($handler instanceof ResolvedHandlerInterface) {
+                    $handler->handle($dto, $this->clientRequest);
+                } elseif (is_callable($handler)) {
+                    $handler($dto, $this->clientRequest);
+                }
+            }
+        }
     }
 
 

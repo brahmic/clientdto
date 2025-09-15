@@ -219,6 +219,174 @@ use Uuid;
 }
 ```
 
+## Resolved Data Handlers
+
+ClientDTO allows you to register handlers that process resolved data after DTO creation. This provides a flexible way to modify or enhance response data before it's returned to the user.
+
+### Basic Usage
+
+```php
+class MyClient extends ClientDTO
+{
+    public function __construct()
+    {
+        $this->setBaseUrl('https://api.example.com');
+        
+        // Handler for all resolved data
+        $this->addResolvedHandler(function($dto, $request) {
+            if (is_object($dto) && property_exists($dto, 'timestamp')) {
+                $dto->timestamp = now();
+            }
+        });
+        
+        // Handler for specific DTO class only
+        $this->addResolvedHandler(
+            function(UserDto $dto, $request) {
+                $dto->displayName = ucfirst($dto->firstName . ' ' . $dto->lastName);
+                
+                // Access request parameters for additional logic
+                if ($request->includePermissions) {
+                    $dto->permissions = $this->loadUserPermissions($dto->id);
+                }
+            },
+            UserDto::class
+        );
+    }
+}
+```
+
+### Handler Types
+
+**Function Handlers:**
+```php
+// Simple function handler
+$client->addResolvedHandler(function($dto, $request) {
+    // Process any resolved data
+});
+
+// Type-specific handler with parameter hints
+$client->addResolvedHandler(
+    function(TelegramResponseDto $dto, AbstractRequest $request) {
+        $dto->processedAt = now();
+        
+        // Access request properties
+        if ($request instanceof SearchByPhoneRequest) {
+            $dto->searchType = 'phone';
+        }
+    },
+    TelegramResponseDto::class
+);
+```
+
+**Class Handlers:**
+```php
+use Brahmic\ClientDTO\Contracts\ResolvedHandlerInterface;
+
+class UserDataEnhancer implements ResolvedHandlerInterface
+{
+    public function handle(mixed $dto, AbstractRequest $request): void
+    {
+        if ($dto instanceof UserDto) {
+            // Enhance user data
+            $dto->avatar = $this->generateAvatarUrl($dto->email);
+            $dto->lastSeen = $this->formatLastSeen($dto->lastSeenAt);
+            
+            // Use request context
+            if ($request->isDebug()) {
+                $dto->debug = ['request_id' => $request->getTrackingId()];
+            }
+        }
+    }
+}
+
+// Register class handler
+$client->addResolvedHandler(new UserDataEnhancer(), UserDto::class);
+```
+
+### Caching Behavior
+
+Resolved handlers work intelligently with ClientDTO's caching system:
+
+**RAW Cache Mode (`requestCacheRaw(true)`):**
+- Handlers execute **every time** data is accessed (even from cache)
+- Raw HTTP response is cached, DTO is rebuilt each time
+- Handlers always have fresh context
+
+**DTO Cache Mode (default):**
+- Handlers execute **once** before caching
+- Processed DTO is cached with handler modifications
+- Subsequent cache hits return pre-processed data
+
+```php
+class MyClient extends ClientDTO
+{
+    public function __construct()
+    {
+        $this
+            ->requestCache()        // Enable caching
+            ->requestCacheRaw()     // RAW mode: handlers run each time
+            
+            // This handler will run every time in RAW mode
+            // or once before caching in DTO mode
+            ->addResolvedHandler(
+                function(ApiResponseDto $dto) {
+                    $dto->processingTime = microtime(true) - $dto->startTime;
+                },
+                ApiResponseDto::class
+            );
+    }
+}
+```
+
+### Handler Parameters
+
+All handlers receive two parameters:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `$dto` | `mixed` | The resolved data (DTO object, string, array, etc.) |
+| `$request` | `AbstractRequest` | The original request object with parameters and context |
+
+### Use Cases
+
+**Data Enhancement:**
+```php
+$client->addResolvedHandler(
+    function(ProductDto $dto, $request) {
+        $dto->discountedPrice = $dto->price * (1 - $dto->discountPercent / 100);
+        $dto->currencySymbol = $this->getCurrencySymbol($dto->currency);
+    },
+    ProductDto::class
+);
+```
+
+**Conditional Processing:**
+```php
+$client->addResolvedHandler(
+    function(OrderDto $dto, $request) {
+        // Only process for admin requests
+        if ($request->userRole === 'admin') {
+            $dto->internalNotes = $this->loadInternalNotes($dto->id);
+            $dto->profitMargin = $dto->revenue - $dto->cost;
+        }
+    },
+    OrderDto::class
+);
+```
+
+**Debug Information:**
+```php
+$client->addResolvedHandler(function($dto, $request) {
+    if ($request->isDebug() && is_object($dto)) {
+        $dto->_debug = [
+            'request_class' => get_class($request),
+            'response_time' => $request->getResponseTime(),
+            'cache_hit' => $request->wasCacheHit()
+        ];
+    }
+});
+```
+
 ## HTTP Request Caching
 
 ClientDTO provides intelligent HTTP request caching with support for both RAW and DTO modes.

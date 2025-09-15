@@ -36,5 +36,6 @@
         "Brahmic\\ClientDTO\\ClientDTOServiceProvider"
       ]
     }
-  }
+  },
+  "version": "1.0.12"
 }

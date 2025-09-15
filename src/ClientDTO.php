@@ -5,6 +5,7 @@ namespace Brahmic\ClientDTO;
 use Brahmic\ClientDTO\Contracts\AbstractRequest;
 use Brahmic\ClientDTO\Contracts\ChainInterface;
 use Brahmic\ClientDTO\Contracts\ClientDTOInterface;
+use Brahmic\ClientDTO\Contracts\ResolvedHandlerInterface;
 use Brahmic\ClientDTO\Resolver\ClientResolver;
 use Brahmic\ClientDTO\ResourceScanner\ResourceMap;
 use Brahmic\ClientDTO\Response\ClientResponse;
@@ -39,6 +40,9 @@ class ClientDTO implements ClientDTOInterface, ChainInterface
     private ?int $requestCacheSize = 1024 * 1024; // 1MB по умолчанию
     private ?int $requestCacheTtl = null; // TTL в секундах (null - без ограничений)
     private bool $postIdempotent = false;
+
+    // Обработчики resolved данных
+    private array $resolvedHandlers = [];
 
     public function logs(): array
     {
@@ -229,6 +233,34 @@ class ClientDTO implements ClientDTOInterface, ChainInterface
     public function isPostIdempotent(): bool 
     { 
         return $this->postIdempotent; 
+    }
+
+    /**
+     * Добавить обработчик resolved данных
+     * 
+     * @param callable|ResolvedHandlerInterface $handler Обработчик или функция
+     * @param string|null $dtoClass Класс DTO (если null - для всех resolved данных)
+     * @return static
+     */
+    public function addResolvedHandler(
+        callable|ResolvedHandlerInterface $handler, 
+        ?string $dtoClass = null
+    ): static {
+        $this->resolvedHandlers[] = [
+            'handler' => $handler,
+            'dtoClass' => $dtoClass
+        ];
+        return $this;
+    }
+
+    /**
+     * Получить зарегистрированные обработчики resolved данных
+     * 
+     * @return array
+     */
+    public function getResolvedHandlers(): array 
+    {
+        return $this->resolvedHandlers;
     }
 
     public function clearCache(): void
